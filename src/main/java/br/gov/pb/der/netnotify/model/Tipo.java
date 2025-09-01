@@ -1,7 +1,29 @@
 package br.gov.pb.der.netnotify.model;
 
-public enum Tipo {
-    NOTICIA,
-    NOTIFICACAO,
-    ALERTA
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Entity
+@Table(name = "tipo")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class Tipo {
+    public static final Integer T_NOTICIA = 1;
+    public static final Integer T_NOTIFICACAO = 2;
+    public static final Integer T_ALERTA = 3;
+
+    @Id
+    private Integer id;
+
+    @Column(name = "tipo")
+    private String name;
+
 }
