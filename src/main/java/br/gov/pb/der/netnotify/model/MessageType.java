@@ -10,12 +10,15 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "tipo")
+@Table(name = "message_type")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Tipo {
+
+
+public class MessageType {
+
     public static final Integer T_NOTICIA = 1;
     public static final Integer T_NOTIFICACAO = 2;
     public static final Integer T_ALERTA = 3;
