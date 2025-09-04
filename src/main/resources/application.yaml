@@ -24,8 +24,7 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
-      database: ${REDIS_DATABASE:0}
+      password: ${REDIS_PASSWORD:}      
 
   # Spring LDAP auto-configuration properties (mapped from environment variables)
   ldap:
@@ -49,4 +48,11 @@ ldap:
   # Filtro de busca para localizar o usuário quando não se usa userDnPattern.
   # Exemplo AD: (sAMAccountName={0})
   searchFilter: ${LDAP_SEARCH_FILTER:(sAMAccountName={0})}
+
+jwt:
+  secret-key: ${JWT_SECRET:defaultSecretKey} # Chave secreta para assinar os tokens JWT
+  expiration-time: ${JWT_EXPIRATION:3600000} # Tempo de expiração em segundos
+
+app:
+  timezone: ${APP_TIMEZONE:America/Recife} # Timezone da aplicação, usado para datas e horários
 

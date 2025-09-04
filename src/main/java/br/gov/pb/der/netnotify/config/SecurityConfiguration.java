@@ -23,17 +23,18 @@ public class SecurityConfiguration {
 
     private final LdapAuthenticationFilter LdapAuthenticationFilter;
     // private final ApiTokenAuthFilter apiTokenAuthFilter;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    public SecurityConfiguration(LdapAuthenticationFilter LdapAuthenticationFilter
-    // ,ApiTokenAuthFilter apiTokenAuthFilter
+    public SecurityConfiguration(LdapAuthenticationFilter LdapAuthenticationFilter, 
+            JwtAuthenticationFilter jwtAuthenticationFilter
     ) {
         this.LdapAuthenticationFilter = LdapAuthenticationFilter;
-        // this.apiTokenAuthFilter = apiTokenAuthFilter;
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
     @Bean
@@ -42,21 +43,23 @@ public class SecurityConfiguration {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/auth/**",
-                                "/public/**",
-                                "/hello",
-                                "/swagger-ui/**",
-                                "/V3/api-docs/**",
-                                "/swagger-ui.html",
-                                "/error/**")
-                        .permitAll()
-                        .requestMatchers("/profile/**", "/hello").authenticated()
-                        .requestMatchers("/admin/**").hasAuthority("ROLE_ADMIN")
-                        .anyRequest().authenticated())
-                .addFilterBefore(LdapAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .requestMatchers(
+                        "/auth/**",
+                        "/public/**",
+                        "/hello",
+                        "/swagger-ui/**",
+                        "/V3/api-docs/**",
+                        "/swagger-ui.html",
+                        "/test-consumer/**",
+                        "/error/**")
+                .permitAll()
+                .requestMatchers("/profile/**", "/hello").authenticated()
+                .requestMatchers("/admin/**").hasAuthority("ROLE_SUPER")
+                .anyRequest().authenticated())
+                .addFilterBefore(LdapAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 

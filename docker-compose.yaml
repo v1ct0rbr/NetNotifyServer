@@ -1,20 +1,16 @@
 services:
   netnotify-rabbitmq:
     image: rabbitmq:3-management
-    container_name: netnotify-rabbitmq
-    ports:
-      - "5672:5672"   # porta do broker
-      - "15672:15672" # painel web
+    container_name: netnotify-rabbitmq    
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
   netnotify-postgres:
     image: postgres:latest
     container_name: netnotify-postgres
-    ports:
-      - "${POSTGRES_PORT}:5432"
     volumes:
       - netnotify-postgres-data:/var/lib/postgresql/data
+   
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -22,18 +18,18 @@ services:
   netnotify-dragonfly:
     image: docker.dragonflydb.io/dragonflydb/dragonfly
     container_name: netnotify-dragonfly
-    ports:
-      - "6379:6379"
-    command: ["--requirepass", "${REDIS_PASSWORD}"]
+
+    command: ["--requirepass", "${REDIS_PASSWORD}", "--databases", "${REDIS_DATABASE}"]
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD}      
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_DATABASE: ${REDIS_DATABASE}
 
   netnotify-flyway:
     image: flyway/flyway:latest
     container_name: netnotify-flyway
     depends_on:
       - netnotify-postgres
-    command: -url=jdbc:postgresql://netnotify-postgres:5432/${POSTGRES_DB} -user=${POSTGRES_USER} -password=${POSTGRES_PASSWORD} migrate
+    command: -url=jdbc:postgresql://postgres:5432/${POSTGRES_DB} -user=${POSTGRES_USER} -password=${POSTGRES_PASSWORD} migrate
     volumes:
       - ./migrations:/flyway/sql
 

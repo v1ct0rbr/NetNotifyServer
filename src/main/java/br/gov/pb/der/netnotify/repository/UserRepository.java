@@ -8,7 +8,7 @@ import org.springframework.stereotype.Repository;
 import br.gov.pb.der.netnotify.model.User;
 
 @Repository
-public interface UserRepository extends CrudRepository<User, Integer> {
+public interface UserRepository extends CrudRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
 
