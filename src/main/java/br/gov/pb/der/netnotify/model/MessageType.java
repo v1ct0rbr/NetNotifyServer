@@ -16,7 +16,6 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 
-
 public class MessageType {
 
     public static final Integer T_NOTICIA = 1;
@@ -28,5 +27,9 @@ public class MessageType {
 
     @Column(name = "tipo")
     private String name;
+
+    public MessageType(Integer id) {
+        this.id = id;
+    }
 
 }

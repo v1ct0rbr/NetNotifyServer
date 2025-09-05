@@ -30,7 +30,7 @@ public class SecurityConfiguration {
         return new BCryptPasswordEncoder();
     }
 
-    public SecurityConfiguration(LdapAuthenticationFilter LdapAuthenticationFilter, 
+    public SecurityConfiguration(LdapAuthenticationFilter LdapAuthenticationFilter,
             JwtAuthenticationFilter jwtAuthenticationFilter
     ) {
         this.LdapAuthenticationFilter = LdapAuthenticationFilter;
@@ -56,6 +56,7 @@ public class SecurityConfiguration {
                         "/error/**")
                 .permitAll()
                 .requestMatchers("/profile/**", "/hello").authenticated()
+                .requestMatchers("/messages/**").hasAnyAuthority("ROLE_USER", "ROLE_SUPER")
                 .requestMatchers("/admin/**").hasAuthority("ROLE_SUPER")
                 .anyRequest().authenticated())
                 .addFilterBefore(LdapAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
