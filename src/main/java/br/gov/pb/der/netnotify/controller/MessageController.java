@@ -42,15 +42,17 @@ public class MessageController {
 
     private final MessageTypeService messageTypeService;
 
-    @GetMapping(value = {"/", ""})
+    @GetMapping(value = { "/", "" })
     public ResponseEntity<SimpleResponseUtils<?>> getMethodName() {
         return ResponseEntity.ok(SimpleResponseUtils.success("Hello World"));
     }
 
     @PostMapping("/create")
-    public ResponseEntity<SimpleResponseUtils<?>> saveMessage(@RequestBody @Validated MessageDto messageDto, BindingResult bindingResult) {
+    public ResponseEntity<SimpleResponseUtils<?>> saveMessage(@RequestBody @Validated MessageDto messageDto,
+            BindingResult bindingResult) {
         if (bindingResult.hasErrors()) {
-            return ResponseEntity.badRequest().body(SimpleResponseUtils.error(null, Functions.errorStringfy(bindingResult)));
+            return ResponseEntity.badRequest()
+                    .body(SimpleResponseUtils.error(null, Functions.errorStringfy(bindingResult)));
         }
         Message message = new Message();
         message.setContent(messageDto.getContent());
@@ -60,24 +62,6 @@ public class MessageController {
         messageService.save(message);
         return ResponseEntity.ok(SimpleResponseUtils.success(message.getId(), "Mensagem salva com sucesso."));
     }
-
-    /* @PostMapping("/update")
-    public ResponseEntity<SimpleResponseUtils<?>> updateMessage(@RequestBody @Validated MessageDto messageDto, BindingResult bindingResult) {
-        if (bindingResult.hasErrors()) {
-            return ResponseEntity.badRequest().body(SimpleResponseUtils.error(null, Functions.errorStringfy(bindingResult)));
-        }
-        Message message = messageService.findById(messageDto.getId());
-        if (message == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(SimpleResponseUtils.error(null, "Mensagem não encontrada."));
-        }
-
-        message.setContent(messageDto.getContent());
-        message.setLevel(new Level(messageDto.getLevelId()));
-        message.setType(new MessageType(messageDto.getMessageTypeId()));
-        message.setUser(userService.getLoggedUser());
-        messageService.save(message);
-        return ResponseEntity.ok(SimpleResponseUtils.success(message.getId(), "Mensagem atualizada com sucesso."));
-    } */
 
     @GetMapping("/all")
     public ResponseEntity<SimpleResponseUtils<Page<MessageResponseDto>>> getAllMessages(
@@ -91,7 +75,8 @@ public class MessageController {
     public ResponseEntity<SimpleResponseUtils<?>> deleteMessage(@RequestParam UUID id) {
         Message message = messageService.findById(id);
         if (message == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(SimpleResponseUtils.error(null, "Mensagem não encontrada."));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(SimpleResponseUtils.error(null, "Mensagem não encontrada."));
         }
         messageService.delete(message);
         return ResponseEntity.ok(SimpleResponseUtils.success(null, "Mensagem deletada com sucesso."));

@@ -11,6 +11,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "role", schema = "auth")
@@ -18,9 +19,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
+@Setter
 public class Role {
 
-    public static final Integer R_SUPER = 1;    
+    public static final Integer R_SUPER = 1;
     public static final Integer R_USER = 2;
     public static final Integer R_GUEST = 3;
 

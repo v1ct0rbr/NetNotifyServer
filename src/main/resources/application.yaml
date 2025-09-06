@@ -48,6 +48,11 @@ ldap:
   # Filtro de busca para localizar o usuário quando não se usa userDnPattern.
   # Exemplo AD: (sAMAccountName={0})
   searchFilter: ${LDAP_SEARCH_FILTER:(sAMAccountName={0})}
+  # Grupos permitidos para autenticação (DNs completos separados por ponto e vírgula)
+  allowedGroups: ${LDAP_ALLOWED_GROUPS:}
+  # Grupo de administradores (DN completo)
+  adminGroup: ${LDAP_ADMIN_GROUP:}
+  
 
 jwt:
   secret-key: ${JWT_SECRET:defaultSecretKey} # Chave secreta para assinar os tokens JWT
