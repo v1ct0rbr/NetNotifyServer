@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import br.gov.pb.der.netnotify.auth.UserDetailsImpl;
 import br.gov.pb.der.netnotify.dto.LoginUserDto;
 import br.gov.pb.der.netnotify.dto.RecoveryJwtTokenDto;
+import br.gov.pb.der.netnotify.dto.UserInfo;
 import br.gov.pb.der.netnotify.model.Role;
 import br.gov.pb.der.netnotify.model.User;
 import br.gov.pb.der.netnotify.service.JwtService;
@@ -32,9 +33,9 @@ public class AuthenticationController {
 
     @PostMapping("/login")
     public ResponseEntity<RecoveryJwtTokenDto> authenticateUser(@RequestBody LoginUserDto loginUserDto) {
-        RecoveryJwtTokenDto token = userService.authenticateUser(loginUserDto);
+        RecoveryJwtTokenDto authenticatedUserDto = userService.authenticateUser(loginUserDto);
 
-        return new ResponseEntity<>(token, HttpStatus.OK);
+        return new ResponseEntity<>(authenticatedUserDto, HttpStatus.OK);
     }
 
     @PostMapping("/ldap-login")
@@ -54,7 +55,7 @@ public class AuthenticationController {
         user.setRoles(List.of(role));
         UserDetailsImpl userDetails = new UserDetailsImpl(user);
         String token = jwtService.generateToken(userDetails);
-        RecoveryJwtTokenDto dto = new RecoveryJwtTokenDto(token);
+        RecoveryJwtTokenDto dto = new RecoveryJwtTokenDto(token, new UserInfo(user));
         return new ResponseEntity<>(dto, HttpStatus.OK);
     }
 

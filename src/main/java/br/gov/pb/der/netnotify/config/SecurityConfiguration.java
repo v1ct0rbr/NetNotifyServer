@@ -31,8 +31,7 @@ public class SecurityConfiguration {
     }
 
     public SecurityConfiguration(LdapAuthenticationFilter LdapAuthenticationFilter,
-            JwtAuthenticationFilter jwtAuthenticationFilter
-    ) {
+            JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.LdapAuthenticationFilter = LdapAuthenticationFilter;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
@@ -43,22 +42,22 @@ public class SecurityConfiguration {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                        "/auth/**",
-                        "/public/**",
-                        "/hello",
-                        "/swagger-ui/**",
-                        "/V3/api-docs/**",
-                        "/swagger-ui.html",
-                        "/test-consumer/**",
-                        "/error/**")
-                .permitAll()
-                .requestMatchers("/profile/**", "/hello").authenticated()
-                .requestMatchers("/messages/**").hasAnyAuthority("ROLE_USER", "ROLE_SUPER")
-                .requestMatchers("/admin/**").hasAuthority("ROLE_SUPER")
-                .anyRequest().authenticated())
+                        .requestMatchers(
+                                "/auth/**",
+                                "/public/**",
+                                "/hello",
+                                "/swagger-ui/**",
+                                "/V3/api-docs/**",
+                                "/swagger-ui.html",
+                                "/test-consumer/**",
+                                "/error/**")
+                        .permitAll()
+                        .requestMatchers("/profile/**", "/aux/**", "/hello").authenticated()
+                        .requestMatchers("/messages/**").hasAnyAuthority("ROLE_USER", "ROLE_SUPER")
+                        .requestMatchers("/admin/**").hasAuthority("ROLE_SUPER")
+                        .anyRequest().authenticated())
                 .addFilterBefore(LdapAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

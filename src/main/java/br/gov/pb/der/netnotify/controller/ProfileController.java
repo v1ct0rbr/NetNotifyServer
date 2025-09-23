@@ -18,6 +18,7 @@ public class ProfileController {
 
     @GetMapping("/me")
     public UserInfo getProfile() {
+        System.out.println("Fetching profile for logged-in user");
         User user = userService.getLoggedUser();
         UserInfo userInfo = new UserInfo();
         userInfo.setUsername(user.getUsername());

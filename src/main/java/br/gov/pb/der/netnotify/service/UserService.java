@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import br.gov.pb.der.netnotify.auth.UserDetailsImpl;
 import br.gov.pb.der.netnotify.dto.LoginUserDto;
 import br.gov.pb.der.netnotify.dto.RecoveryJwtTokenDto;
+import br.gov.pb.der.netnotify.dto.UserInfo;
 import br.gov.pb.der.netnotify.model.User;
 import br.gov.pb.der.netnotify.repository.UserRepository;
 
@@ -40,9 +41,19 @@ public class UserService {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         // User userDetails = findByUsernameAndPassword(loginUserDto.getUsername(),
         // loginUserDto.getPassword());
-
+        String token = jwtTokenService.generateToken(userDetails);
+        User user = (userDetails instanceof UserDetailsImpl
+                ? ((UserDetailsImpl) userDetails).getUser()
+                : null);
+        UserInfo userInfo = new UserInfo();
+        if (user != null) {
+            userInfo.setUsername(user.getUsername());
+            userInfo.setFullName(user.getFullName());
+            userInfo.setEmail(user.getEmail());
+            userInfo.setRoles(user.getRoles());
+        }
         // Gera um token JWT para o usuário autenticado
-        return new RecoveryJwtTokenDto(jwtTokenService.generateToken(userDetails));
+        return new RecoveryJwtTokenDto(token, userInfo);
     }
 
     public User getLoggedUser() {
