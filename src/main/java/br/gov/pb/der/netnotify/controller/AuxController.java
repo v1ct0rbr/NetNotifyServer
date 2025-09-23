@@ -14,7 +14,7 @@ import br.gov.pb.der.netnotify.service.MessageTypeService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/aux/")
+@RequestMapping("/aux")
 @RequiredArgsConstructor
 public class AuxController {
 

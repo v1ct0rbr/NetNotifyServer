@@ -24,8 +24,8 @@ public class Level {
     @Id
     public Integer id;
 
-    @Column(name = "nome")
-    private String nome;
+    @Column(name = "name")
+    private String name;
 
     public Level(Integer id) {
         this.id = id;

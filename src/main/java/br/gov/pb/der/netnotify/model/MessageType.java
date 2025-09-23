@@ -25,7 +25,7 @@ public class MessageType {
     @Id
     private Integer id;
 
-    @Column(name = "tipo")
+    @Column(name = "name")
     private String name;
 
     public MessageType(Integer id) {

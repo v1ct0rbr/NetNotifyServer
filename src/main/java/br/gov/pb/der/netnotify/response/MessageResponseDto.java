@@ -23,7 +23,7 @@ public class MessageResponseDto implements Serializable {
 
     public MessageResponseDto(Message message) {
         this.content = message.getContent();
-        this.level = message.getLevel().getNome();
+        this.level = message.getLevel().getName();
         this.messageType = message.getType().getName();
         this.user = message.getUser().getUsername();
         this.createdAt = message.getCreatedAt();

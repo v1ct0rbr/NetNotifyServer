@@ -10,7 +10,7 @@ INSERT INTO auth.users_roles (user_id, role_id)
 SELECT u.id, r.id FROM auth.users u, auth.role r WHERE u.username = 'admin' AND r.name = 'ROLE_SUPER';
 
 -- Inserir níveis de prioridade
-INSERT INTO Level (id, nome) VALUES (1, 'Baixo'), (2, 'Normal'), (3, 'Alto'), (4, 'Urgente');
+INSERT INTO Level (id, name) VALUES (1, 'Baixo'), (2, 'Normal'), (3, 'Alto'), (4, 'Urgente');
 
 -- Inserir tipos de mensagem
-INSERT INTO message_type (id, tipo) VALUES (1, 'Notícia'), (2, 'Notificação'), (3, 'Alerta');
+INSERT INTO message_type (id, name) VALUES (1, 'Notícia'), (2, 'Notificação'), (3, 'Alerta');
