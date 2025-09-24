@@ -42,7 +42,7 @@ public class MessageController {
 
     private final MessageTypeService messageTypeService;
 
-    @GetMapping(value = { "/", "" })
+    @GetMapping(value = {"/", ""})
     public ResponseEntity<SimpleResponseUtils<?>> getMethodName() {
         return ResponseEntity.ok(SimpleResponseUtils.success("Hello World"));
     }
@@ -67,8 +67,14 @@ public class MessageController {
     public ResponseEntity<SimpleResponseUtils<Page<MessageResponseDto>>> getAllMessages(
             @ModelAttribute MessageFilter filter,
             Pageable pageable) {
-        Page<MessageResponseDto> messages = messageService.findAllMessages(filter, pageable);
-        return ResponseEntity.ok(SimpleResponseUtils.success(messages));
+        try {
+            Page<MessageResponseDto> messages = messageService.findAllMessages(filter, pageable);
+            return ResponseEntity.ok(SimpleResponseUtils.success(messages));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(SimpleResponseUtils.error(null, "Erro ao buscar mensagens."));
+        }
+
     }
 
     @DeleteMapping("/delete")

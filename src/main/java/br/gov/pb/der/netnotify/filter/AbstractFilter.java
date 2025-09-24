@@ -8,7 +8,7 @@ public abstract class AbstractFilter {
     public static final int SORTBYMETHOD_DESC = 2;
 
     protected int sortBy;
-    protected int sortByMethod;
+    protected int sortOrder;
 
     public AbstractFilter() {
         super();
@@ -30,12 +30,12 @@ public abstract class AbstractFilter {
         this.sortBy = sortBy;
     }
 
-    public int getSortByMethod() {
-        return sortByMethod;
+    public int getSortOrder() {
+        return sortOrder;
     }
 
-    public void setSortByMethod(int sortByMethod) {
-        this.sortByMethod = sortByMethod;
+    public void setSortOrder(int sortByMethod) {
+        this.sortOrder = sortByMethod;
     }
 
     public static int getSortByMethodAsc() {
