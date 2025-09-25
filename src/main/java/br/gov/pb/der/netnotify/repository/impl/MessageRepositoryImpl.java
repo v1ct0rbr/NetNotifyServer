@@ -17,7 +17,7 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
     @Override
     public Page<MessageResponseDto> findAllMessages(MessageFilter filter, Pageable pageable) {
         StringBuilder jpql = new StringBuilder("SELECT new br.gov.pb.der.netnotify.response.MessageResponseDto(m.id, "
-                + "m.content, m.level.nome, m.type.name, m.user.username, m.createdAt, m.updatedAt) FROM Message m WHERE 1=1");
+                + "m.content, m.level.name, m.type.name, m.user.username, m.createdAt, m.updatedAt) FROM Message m WHERE 1=1");
         StringBuilder countJpql = new StringBuilder("SELECT COUNT(m) FROM Message m WHERE 1=1");
 
         // Filtros dinâmicos
@@ -74,5 +74,5 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
 
         return new org.springframework.data.domain.PageImpl<>(resultList, pageable, total);
     }
-    // 
+    //
 }
