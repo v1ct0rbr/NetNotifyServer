@@ -1,7 +1,7 @@
 package br.gov.pb.der.netnotify.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -12,12 +12,15 @@ public class MessageDto implements java.io.Serializable {
 
     private String id;
     @Size(max = 1000, min = 10, message = "O conteúdo deve ter entre 10 e 1000 caracteres")
+    
     private String content;
-    @Size(max = 5, min = 1, message = "O nível deve ter entre 1 e 5 caracteres")
-    @JsonProperty("level_id")
-    private Integer levelId;
-    @JsonProperty("message_type_id")
-    @Size(max = 5, min = 1, message = "O tipo de mensagem deve ter entre 1 e 5 caracteres")
-    private Integer messageTypeId;
+    @Min(value = 1, message = "O nível deve ser maior que 0")
+    @Max(value = 5, message = "O nível deve ser menor que 6")
+    
+    private Integer level;
+    @Max(value = 5, message = "O tipo de mensagem deve ser menor que 6")
+    @Min(value = 1, message = "O tipo de mensagem deve ser maior que 0")
+    
+    private Integer type;
 
 }

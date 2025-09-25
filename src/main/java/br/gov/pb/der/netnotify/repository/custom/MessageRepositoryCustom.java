@@ -9,4 +9,6 @@ import br.gov.pb.der.netnotify.response.MessageResponseDto;
 public interface MessageRepositoryCustom {
 
     Page<MessageResponseDto> findAllMessages(MessageFilter filter, Pageable pageable);
+
+    Long countMessages(MessageFilter filter);
 }

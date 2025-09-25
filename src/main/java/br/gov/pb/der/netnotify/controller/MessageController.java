@@ -34,6 +34,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class MessageController {
 
+    public static final int DEFAULT_PAGE_SIZE = 10;
+
     private final MessageService messageService;
 
     private final UserService userService;
@@ -56,8 +58,8 @@ public class MessageController {
         }
         Message message = new Message();
         message.setContent(messageDto.getContent());
-        message.setLevel(levelService.findById(messageDto.getLevelId()));
-        message.setType(messageTypeService.findById(messageDto.getMessageTypeId()));
+        message.setLevel(levelService.findById(messageDto.getLevel()));
+        message.setType(messageTypeService.findById(messageDto.getType()));
         message.setUser(userService.getLoggedUser());
         messageService.save(message);
         return ResponseEntity.ok(SimpleResponseUtils.success(message.getId(), "Mensagem salva com sucesso."));
@@ -65,9 +67,12 @@ public class MessageController {
 
     @GetMapping("/all")
     public ResponseEntity<Page<MessageResponseDto>> getAllMessages(
-            @ModelAttribute MessageFilter filter,
-            Pageable pageable) {
+            @ModelAttribute MessageFilter filter
+            ) {
         try {
+            int pageNumber = (filter.getPage() != null && filter.getPage() > 0) ? (filter.getPage() - 1) : 0;
+            int pageSize = (filter.getSize() != null && filter.getSize() > 0) ? filter.getSize() : DEFAULT_PAGE_SIZE;
+            Pageable pageable = Pageable.ofSize(pageSize).withPage(pageNumber);           
             Page<MessageResponseDto> messages = messageService.findAllMessages(filter, pageable);
             return ResponseEntity.ok(messages);
         } catch (Exception e) {
