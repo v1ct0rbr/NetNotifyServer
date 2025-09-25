@@ -7,7 +7,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -27,6 +26,7 @@ import br.gov.pb.der.netnotify.service.MessageTypeService;
 import br.gov.pb.der.netnotify.service.UserService;
 import br.gov.pb.der.netnotify.utils.Functions;
 import br.gov.pb.der.netnotify.utils.SimpleResponseUtils;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -42,13 +42,13 @@ public class MessageController {
 
     private final MessageTypeService messageTypeService;
 
-    @GetMapping(value = { "/", "" })
+    @GetMapping(value = {"/", ""})
     public ResponseEntity<SimpleResponseUtils<?>> getMethodName() {
         return ResponseEntity.ok(SimpleResponseUtils.success("Hello World"));
     }
 
     @PostMapping("/create")
-    public ResponseEntity<SimpleResponseUtils<?>> saveMessage(@RequestBody @Validated MessageDto messageDto,
+    public ResponseEntity<SimpleResponseUtils<?>> saveMessage(@RequestBody @Valid MessageDto messageDto,
             BindingResult bindingResult) {
         if (bindingResult.hasErrors()) {
             return ResponseEntity.badRequest()
@@ -64,15 +64,14 @@ public class MessageController {
     }
 
     @GetMapping("/all")
-    public ResponseEntity<SimpleResponseUtils<Page<MessageResponseDto>>> getAllMessages(
+    public ResponseEntity<Page<MessageResponseDto>> getAllMessages(
             @ModelAttribute MessageFilter filter,
             Pageable pageable) {
         try {
             Page<MessageResponseDto> messages = messageService.findAllMessages(filter, pageable);
-            return ResponseEntity.ok(SimpleResponseUtils.success(messages));
+            return ResponseEntity.ok(messages);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(SimpleResponseUtils.error(null, "Erro ao buscar mensagens."));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
