@@ -42,19 +42,20 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         Join<Message, br.gov.pb.der.netnotify.model.MessageType> typeJoin = message.join(Message_.type, JoinType.LEFT);
         Join<Message, br.gov.pb.der.netnotify.model.User> userJoin = message.join(Message_.user, JoinType.LEFT);
 
-    cq.select(cb.construct(MessageResponseDto.class,
-        message.get(Message_.id),
-        message.get(Message_.content),
-        levelJoin.get(Level_.name),
-        typeJoin.get(MessageType_.name),
-        userJoin.get("username"),
-        message.get(Message_.createdAt),
-        message.get(Message_.updatedAt)));
+        cq.select(cb.construct(MessageResponseDto.class,
+                message.get(Message_.id),
+                cb.substring(message.get(Message_.content), 1, 20),
+                levelJoin.get(Level_.name),
+                typeJoin.get(MessageType_.name),
+                userJoin.get("username"),
+                message.get(Message_.createdAt),
+                message.get(Message_.updatedAt)));
         // Filtros dinâmicos
         List<Predicate> predicates = new ArrayList<>();
         if (filter != null) {
             if (filter.getContent() != null && !filter.getContent().isEmpty()) {
-                predicates.add(cb.like(cb.lower(message.get(Message_.content)), Functions.toLowerCaseForQuery(filter.getContent())));
+                predicates.add(cb.like(cb.lower(message.get(Message_.content)),
+                        Functions.toLowerCaseForQuery(filter.getContent())));
             }
             if (filter.getLevelId() != null) {
                 predicates.add(cb.equal(levelJoin.get(Level_.id), filter.getLevelId()));
@@ -79,12 +80,24 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
             cq.orderBy(cb.desc(message.get("createdAt")));
         }
         TypedQuery<MessageResponseDto> query = entityManager.createQuery(cq);
-        
 
         query.setFirstResult((int) pageable.getOffset());
         query.setMaxResults(pageable.getPageSize());
         List<MessageResponseDto> content = query.getResultList();
-        Page<MessageResponseDto> resultPage = new org.springframework.data.domain.PageImpl<>(content, pageable, countMessages(filter));
+        // para cada objeto o atributo content deve ser completado com "..." se tiver
+        // mais de 20 caracteres
+        for (MessageResponseDto dto : content) {
+            if (dto.getContent() != null) {
+                if (dto.getContent().length() < 11) {
+                    dto.setContent(Functions.removeHtmlTags(dto.getContent()) + "...");
+                } else {
+                    dto.setContent(Functions.sanitizeAndTruncate(dto.getContent(), 20) + "...");
+                }
+            }
+        }
+
+        Page<MessageResponseDto> resultPage = new org.springframework.data.domain.PageImpl<>(content, pageable,
+                countMessages(filter));
         return resultPage;
 
     }
@@ -99,7 +112,8 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         List<Predicate> predicates = new ArrayList<>();
         if (filter != null) {
             if (filter.getContent() != null && !filter.getContent().isEmpty()) {
-                predicates.add(cb.like(cb.lower(message.get(Message_.content)), Functions.toLowerCaseForQuery(filter.getContent())));
+                predicates.add(cb.like(cb.lower(message.get(Message_.content)),
+                        Functions.toLowerCaseForQuery(filter.getContent())));
             }
             if (filter.getLevelId() != null) {
                 predicates.add(cb.equal(message.get(Message_.level).get(Level_.id), filter.getLevelId()));

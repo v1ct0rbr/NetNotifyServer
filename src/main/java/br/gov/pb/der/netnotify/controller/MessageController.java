@@ -44,7 +44,7 @@ public class MessageController {
 
     private final MessageTypeService messageTypeService;
 
-    @GetMapping(value = {"/", ""})
+    @GetMapping(value = { "/", "" })
     public ResponseEntity<SimpleResponseUtils<?>> getMethodName() {
         return ResponseEntity.ok(SimpleResponseUtils.success("Hello World"));
     }
@@ -67,12 +67,11 @@ public class MessageController {
 
     @GetMapping("/all")
     public ResponseEntity<Page<MessageResponseDto>> getAllMessages(
-            @ModelAttribute MessageFilter filter
-            ) {
+            @ModelAttribute MessageFilter filter) {
         try {
-            int pageNumber = (filter.getPage() != null && filter.getPage() > 0) ? (filter.getPage() - 1) : 0;
+            int pageNumber = (filter.getPage() != null && filter.getPage() > 0) ? filter.getPage() : 0;
             int pageSize = (filter.getSize() != null && filter.getSize() > 0) ? filter.getSize() : DEFAULT_PAGE_SIZE;
-            Pageable pageable = Pageable.ofSize(pageSize).withPage(pageNumber);           
+            Pageable pageable = Pageable.ofSize(pageSize).withPage(pageNumber);
             Page<MessageResponseDto> messages = messageService.findAllMessages(filter, pageable);
             return ResponseEntity.ok(messages);
         } catch (Exception e) {
