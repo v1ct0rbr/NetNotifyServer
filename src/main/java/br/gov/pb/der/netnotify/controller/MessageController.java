@@ -10,6 +10,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -44,9 +45,27 @@ public class MessageController {
 
     private final MessageTypeService messageTypeService;
 
-    @GetMapping(value = { "/", "" })
-    public ResponseEntity<SimpleResponseUtils<?>> getMethodName() {
-        return ResponseEntity.ok(SimpleResponseUtils.success("Hello World"));
+    
+
+    @GetMapping("/{id}")
+    public ResponseEntity<SimpleResponseUtils<MessageResponseDto>> getMessageById(@PathVariable UUID id) {
+        Message message = messageService.findById(id);
+
+        if (message == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(SimpleResponseUtils.error(null, "Mensagem não encontrada."));
+        }
+        return ResponseEntity.ok(SimpleResponseUtils.success(message.objectMapper()));
+    }
+    //parametros de url .... clone-message-id
+    @GetMapping(value={"/", ""}, params = "clone-message-id")
+    public ResponseEntity<MessageDto> getSimpleMessage(@RequestParam(name = "clone-message-id") UUID id) {
+        MessageDto message = messageService.findMessageDtoById(id);
+        if (message == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+        MessageDto messageDto = new MessageDto();       
+        return ResponseEntity.ok(messageDto);
     }
 
     @PostMapping("/create")

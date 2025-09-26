@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import br.gov.pb.der.netnotify.dto.MessageDto;
 import br.gov.pb.der.netnotify.filter.MessageFilter;
 import br.gov.pb.der.netnotify.model.Message;
 import br.gov.pb.der.netnotify.repository.MessageRepository;
@@ -36,6 +37,10 @@ public class MessageService implements AbstractService<Message, UUID> {
 
     public Message findById(String id) {
         return messageRepository.findById(UUID.fromString(id)).orElse(null);
+    }
+
+    public MessageDto findMessageDtoById(UUID id) {
+        return messageRepository.findMessageDtoById(id);
     }
 
     public Page<MessageResponseDto> findAllMessages(MessageFilter filter, Pageable pageable) {

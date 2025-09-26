@@ -6,6 +6,7 @@ import java.util.UUID;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import br.gov.pb.der.netnotify.response.MessageResponseDto;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -52,5 +53,18 @@ public class Message {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    public MessageResponseDto objectMapper() {
+        return new MessageResponseDto(
+                this.id,
+                this.content,
+                this.level != null ? this.level.getName() : null,
+                this.type != null ? this.type.getName() : null,
+                this.user != null ? this.user.getUsername() : null,
+                this.createdAt,
+                this.updatedAt
+        );
+
+    }
 
 }
