@@ -5,6 +5,8 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+import org.springframework.amqp.core.FanoutExchange;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -18,8 +20,6 @@ import lombok.Setter;
 @Setter
 public class RabbitmqService {
 
-    public static final String EXCHANGE_NAME = "netnotify";
-
     @Value("${spring.rabbitmq.host}")
     private String factoryHost;
     @Value("${spring.rabbitmq.username}")
@@ -29,12 +29,16 @@ public class RabbitmqService {
     @Value("${spring.rabbitmq.virtual-host}")
     private String factoryVirtualHost;
 
+    @Autowired
+    private FanoutExchange fanoutExchange;
+
     public ConnectionFactory rabbitConnectionFactory() {
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost(factoryHost);
         factory.setUsername(factoryUsername);
         factory.setPassword(factoryPassword);
         factory.setVirtualHost(factoryVirtualHost);
+
         return factory;
     }
 
@@ -43,9 +47,9 @@ public class RabbitmqService {
             ConnectionFactory factory = rabbitConnectionFactory();
             com.rabbitmq.client.Connection connection = factory.newConnection();
             com.rabbitmq.client.Channel channel = connection.createChannel();
-            channel.exchangeDeclare(EXCHANGE_NAME, "fanout");
+            channel.exchangeDeclare(fanoutExchange.getName(), fanoutExchange.getType());
 
-            channel.basicPublish(EXCHANGE_NAME, "", null, message.getBytes("UTF-8"));
+            channel.basicPublish(fanoutExchange.getName(), "", null, message.getBytes("UTF-8"));
             System.out.println(" [x] Sent '" + message + "'");
 
             channel.close();
@@ -60,7 +64,8 @@ public class RabbitmqService {
     }
 
     /**
-     * Consome de forma síncrona a primeira mensagem disponível na exchange (fanout).
+     * Consome de forma síncrona a primeira mensagem disponível na exchange
+     * (fanout).
      * Aguarda até timeoutMillis milissegundos antes de retornar null.
      */
     public String basicConsume(long timeoutMillis) {
@@ -69,9 +74,9 @@ public class RabbitmqService {
             ConnectionFactory factory = rabbitConnectionFactory();
             com.rabbitmq.client.Connection connection = factory.newConnection();
             com.rabbitmq.client.Channel channel = connection.createChannel();
-            channel.exchangeDeclare(EXCHANGE_NAME, "fanout");
+            channel.exchangeDeclare(fanoutExchange.getName(), fanoutExchange.getType());
             String queueName = channel.queueDeclare().getQueue();
-            channel.queueBind(queueName, EXCHANGE_NAME, "");
+            channel.queueBind(queueName, fanoutExchange.getName(), "");
 
             System.out.println(" [*] Waiting for messages. To exit press CTRL+C");
 
@@ -89,10 +94,18 @@ public class RabbitmqService {
 
             // cleanup
             try {
-                if (consumerTag != null) channel.basicCancel(consumerTag);
-            } catch (Exception ignore) {}
-            try { channel.close(); } catch (Exception ignore) {}
-            try { connection.close(); } catch (Exception ignore) {}
+                if (consumerTag != null)
+                    channel.basicCancel(consumerTag);
+            } catch (Exception ignore) {
+            }
+            try {
+                channel.close();
+            } catch (Exception ignore) {
+            }
+            try {
+                connection.close();
+            } catch (Exception ignore) {
+            }
 
             return message != null ? message : null;
 

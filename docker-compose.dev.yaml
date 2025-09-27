@@ -3,11 +3,15 @@ services:
     image: rabbitmq:3-management
     container_name: netnotify-rabbitmq
     ports:
-      - "5672:5672"   # porta do broker
+      - "5672:5672" # porta do broker
       - "15672:15672" # painel web
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST}
+    volumes:
+      - netnotify-rabbitmq-data:/var/lib/rabbitmq
+
   netnotify-postgres:
     image: postgres:latest
     container_name: netnotify-postgres
@@ -24,9 +28,9 @@ services:
     container_name: netnotify-dragonfly
     ports:
       - "6379:6379"
-    command: ["--requirepass", "${REDIS_PASSWORD}"]
+    command: [ "--requirepass", "${REDIS_PASSWORD}" ]
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD}      
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
 
   netnotify-flyway:
     image: flyway/flyway:latest
@@ -39,3 +43,4 @@ services:
 
 volumes:
   netnotify-postgres-data:
+  netnotify-rabbitmq-data:

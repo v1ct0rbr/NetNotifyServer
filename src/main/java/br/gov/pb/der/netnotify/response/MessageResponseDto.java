@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import br.gov.pb.der.netnotify.model.Message;
+import br.gov.pb.der.netnotify.utils.DateUtils;
 import lombok.Data;
 
 @Data
@@ -30,7 +31,8 @@ public class MessageResponseDto implements Serializable {
         this.updatedAt = message.getUpdatedAt();
     }
 
-    public MessageResponseDto(UUID id, String content, String level, String messageType, String user, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public MessageResponseDto(UUID id, String content, String level, String messageType, String user,
+            LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.content = content;
         this.level = level;
@@ -38,5 +40,16 @@ public class MessageResponseDto implements Serializable {
         this.createdAt = createdAt;
         this.user = user;
         this.updatedAt = updatedAt;
+    }
+
+    public String jsonStringfy() {
+        return "{" +
+                "\"content\":\"" + content + "\"," +
+                "\"level\":\"" + level + "\"," +
+                "\"type\":\"" + messageType + "\"," +
+                "\"user\":\"" + user + "\"," +
+                "\"createdAt\":\"" + DateUtils.format(createdAt) + "\"," +
+                "\"updatedAt\":\"" + DateUtils.format(updatedAt) + "\"" +
+                "}";
     }
 }

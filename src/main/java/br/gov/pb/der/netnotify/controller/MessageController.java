@@ -24,6 +24,7 @@ import br.gov.pb.der.netnotify.response.MessageResponseDto;
 import br.gov.pb.der.netnotify.service.LevelService;
 import br.gov.pb.der.netnotify.service.MessageService;
 import br.gov.pb.der.netnotify.service.MessageTypeService;
+import br.gov.pb.der.netnotify.service.RabbitmqService;
 import br.gov.pb.der.netnotify.service.UserService;
 import br.gov.pb.der.netnotify.utils.Functions;
 import br.gov.pb.der.netnotify.utils.SimpleResponseUtils;
@@ -45,7 +46,7 @@ public class MessageController {
 
     private final MessageTypeService messageTypeService;
 
-    
+    private final RabbitmqService rabbitmqService;
 
     @GetMapping("/{id}")
     public ResponseEntity<SimpleResponseUtils<MessageResponseDto>> getMessageById(@PathVariable UUID id) {
@@ -57,31 +58,39 @@ public class MessageController {
         }
         return ResponseEntity.ok(SimpleResponseUtils.success(message.objectMapper()));
     }
-    //parametros de url .... clone-message-id
-    @GetMapping(value={"/", ""}, params = "clone-message-id")
+
+    // parametros de url .... clone-message-id
+    @GetMapping(value = { "/", "" }, params = "clone-message-id")
     public ResponseEntity<MessageDto> getSimpleMessage(@RequestParam(name = "clone-message-id") UUID id) {
-        MessageDto message = messageService.findMessageDtoById(id);
-        if (message == null) {
+        MessageDto messageDto = messageService.findMessageDtoById(id);
+        if (messageDto == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
-        MessageDto messageDto = new MessageDto();       
+
         return ResponseEntity.ok(messageDto);
     }
 
     @PostMapping("/create")
     public ResponseEntity<SimpleResponseUtils<?>> saveMessage(@RequestBody @Valid MessageDto messageDto,
             BindingResult bindingResult) {
+
         if (bindingResult.hasErrors()) {
             return ResponseEntity.badRequest()
                     .body(SimpleResponseUtils.error(null, Functions.errorStringfy(bindingResult)));
         }
-        Message message = new Message();
-        message.setContent(messageDto.getContent());
-        message.setLevel(levelService.findById(messageDto.getLevel()));
-        message.setType(messageTypeService.findById(messageDto.getType()));
-        message.setUser(userService.getLoggedUser());
-        messageService.save(message);
-        return ResponseEntity.ok(SimpleResponseUtils.success(message.getId(), "Mensagem salva com sucesso."));
+        try {
+            Message message = new Message();
+            message.setContent(messageDto.getContent());
+            message.setLevel(levelService.findById(messageDto.getLevel()));
+            message.setType(messageTypeService.findById(messageDto.getType()));
+            message.setUser(userService.getLoggedUser());
+            messageService.save(message);
+            sendNotification(message);
+            return ResponseEntity.ok(SimpleResponseUtils.success(message.getId(), "Mensagem salva com sucesso."));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(SimpleResponseUtils.error(null, "Erro ao salvar a mensagem: " + e.getMessage()));
+        }
     }
 
     @GetMapping("/all")
@@ -98,7 +107,7 @@ public class MessageController {
         }
     }
 
-    @DeleteMapping("/delete")
+    @DeleteMapping(path = "/delete", params = "id")
     public ResponseEntity<SimpleResponseUtils<?>> deleteMessage(@RequestParam UUID id) {
         Message message = messageService.findById(id);
         if (message == null) {
@@ -107,6 +116,12 @@ public class MessageController {
         }
         messageService.delete(message);
         return ResponseEntity.ok(SimpleResponseUtils.success(null, "Mensagem deletada com sucesso."));
+    }
+
+    public String sendNotification(Message message) {
+        String msg = message.objectMapper().jsonStringfy();
+        rabbitmqService.basicPublish(msg);
+        return msg;
     }
 
 }
