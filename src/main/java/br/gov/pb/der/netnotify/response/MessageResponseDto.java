@@ -44,12 +44,12 @@ public class MessageResponseDto implements Serializable {
 
     public String jsonStringfy() {
         return "{" +
-                "\"content\":\"" + content + "\"," +
-                "\"level\":\"" + level + "\"," +
-                "\"type\":\"" + messageType + "\"," +
-                "\"user\":\"" + user + "\"," +
-                "\"createdAt\":\"" + DateUtils.format(createdAt) + "\"," +
-                "\"updatedAt\":\"" + DateUtils.format(updatedAt) + "\"" +
-                "}";
+            "'content':'" + content + "'," +
+            "'level':'" + level + "'," +
+            "'type':'" + messageType + "'," +
+            "'user':'" + user + "'," +
+            "'createdAt':'" + DateUtils.format(createdAt) + "'," +
+            "'updatedAt':'" + DateUtils.format(updatedAt) + "'" +
+            "}";
     }
 }
