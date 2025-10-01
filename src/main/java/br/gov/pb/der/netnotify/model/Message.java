@@ -32,6 +32,10 @@ public class Message {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Column(name = "title", length = 100)
+    private String title;
+
+    @Column(name = "content", columnDefinition = "TEXT")
     private String content;
 
     @ManyToOne
@@ -55,8 +59,9 @@ public class Message {
     private LocalDateTime updatedAt;
 
     public MessageResponseDto objectMapper() {
-        return new MessageResponseDto(
-                this.id,
+        return new MessageResponseDto(  
+                this.id,              
+                this.title,
                 this.content,
                 this.level != null ? this.level.getName() : null,
                 this.type != null ? this.type.getName() : null,

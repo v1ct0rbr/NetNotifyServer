@@ -13,6 +13,8 @@ public class MessageDto implements java.io.Serializable {
     private String id;
     @Size(max = 10000, min = 10, message = "O conteúdo deve ter entre 10 e 10000 caracteres")
 
+    private String title;
+
     private String content;
     @Min(value = 1, message = "O nível deve ser maior que 0")
     @Max(value = 5, message = "O nível deve ser menor que 6")

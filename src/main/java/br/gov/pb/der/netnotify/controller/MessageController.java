@@ -80,6 +80,7 @@ public class MessageController {
         }
         try {
             Message message = new Message();
+            message.setTitle(messageDto.getTitle());
             message.setContent(messageDto.getContent());
             message.setLevel(levelService.findById(messageDto.getLevel()));
             message.setType(messageTypeService.findById(messageDto.getType()));

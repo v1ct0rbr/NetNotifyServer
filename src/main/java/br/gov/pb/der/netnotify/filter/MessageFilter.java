@@ -19,6 +19,8 @@ public class MessageFilter extends AbstractFilter {
         sortOrder = SORT_ORDER_DESC;
     }
 
+    private String title;
+
     private String content;
 
     private Integer levelId;

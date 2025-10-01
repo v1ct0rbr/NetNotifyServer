@@ -44,6 +44,7 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
 
         cq.select(cb.construct(MessageResponseDto.class,
                 message.get(Message_.id),
+                message.get(Message_.title),
                 cb.substring(message.get(Message_.content), 1, 20),
                 levelJoin.get(Level_.name),
                 typeJoin.get(MessageType_.name),
@@ -53,6 +54,10 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         // Filtros dinâmicos
         List<Predicate> predicates = new ArrayList<>();
         if (filter != null) {
+            if (filter.getTitle() != null && !filter.getTitle().isEmpty()) {
+                predicates.add(cb.like(cb.lower(message.get(Message_.title)),
+                        Functions.toLowerCaseForQuery(filter.getTitle())));
+            }
             if (filter.getContent() != null && !filter.getContent().isEmpty()) {
                 predicates.add(cb.like(cb.lower(message.get(Message_.content)),
                         Functions.toLowerCaseForQuery(filter.getContent())));
@@ -111,6 +116,10 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         // Filtros dinâmicos
         List<Predicate> predicates = new ArrayList<>();
         if (filter != null) {
+            if (filter.getTitle() != null && !filter.getTitle().isEmpty()) {
+                predicates.add(cb.like(cb.lower(message.get(Message_.title)),
+                        Functions.toLowerCaseForQuery(filter.getTitle())));
+            }
             if (filter.getContent() != null && !filter.getContent().isEmpty()) {
                 predicates.add(cb.like(cb.lower(message.get(Message_.content)),
                         Functions.toLowerCaseForQuery(filter.getContent())));

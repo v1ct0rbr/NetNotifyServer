@@ -12,6 +12,7 @@ import lombok.Data;
 public class MessageResponseDto implements Serializable {
 
     private UUID id;
+    private String title;
     private String content;
     private String level;
     private String messageType;
@@ -23,6 +24,7 @@ public class MessageResponseDto implements Serializable {
     }
 
     public MessageResponseDto(Message message) {
+        this.title = message.getTitle();
         this.content = message.getContent();
         this.level = message.getLevel().getName();
         this.messageType = message.getType().getName();
@@ -31,9 +33,10 @@ public class MessageResponseDto implements Serializable {
         this.updatedAt = message.getUpdatedAt();
     }
 
-    public MessageResponseDto(UUID id, String content, String level, String messageType, String user,
+    public MessageResponseDto(UUID id, String title, String content, String level, String messageType, String user,
             LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
+        this.title = title;
         this.content = content;
         this.level = level;
         this.messageType = messageType;
@@ -43,7 +46,8 @@ public class MessageResponseDto implements Serializable {
     }
 
     public String jsonStringfy() {
-        return "{" +
+        return "{" +            
+            "'title':'" + title + "'," +
             "'content':'" + content + "'," +
             "'level':'" + level + "'," +
             "'type':'" + messageType + "'," +
