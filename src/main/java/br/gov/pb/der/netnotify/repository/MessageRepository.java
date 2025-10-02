@@ -13,7 +13,7 @@ import br.gov.pb.der.netnotify.repository.custom.MessageRepositoryCustom;
 @Repository
 public interface MessageRepository extends JpaRepository<Message, UUID>, MessageRepositoryCustom {
 
-    @Query("SELECT new br.gov.pb.der.netnotify.dto.MessageDto(m.content, l.id, t.id) "
+    @Query("SELECT new br.gov.pb.der.netnotify.dto.MessageDto(m.title, m.content, l.id, t.id) "
             + "FROM Message m "
             + "LEFT JOIN m.level l "
             + "LEFT JOIN m.type t "

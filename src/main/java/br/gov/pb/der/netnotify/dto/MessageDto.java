@@ -28,7 +28,8 @@ public class MessageDto implements java.io.Serializable {
     public MessageDto() {
     }
 
-    public MessageDto(String content, Integer level, Integer type) {
+    public MessageDto(String title, String content, Integer level, Integer type) {
+        this.title = title;
         this.content = content;
         this.level = level;
         this.type = type;
