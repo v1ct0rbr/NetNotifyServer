@@ -11,8 +11,7 @@ import lombok.Setter;
 public class MessageDto implements java.io.Serializable {
 
     private String id;
-    @Size(max = 10000, min = 10, message = "O conteúdo deve ter entre 10 e 10000 caracteres")
-
+    @Size(min = 10, message = "O conteúdo deve ter entre 10 e 10000 caracteres")
     private String title;
 
     private String content;

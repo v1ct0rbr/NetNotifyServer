@@ -5,7 +5,6 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import br.gov.pb.der.netnotify.model.Message;
-import br.gov.pb.der.netnotify.utils.DateUtils;
 import lombok.Data;
 
 @Data
@@ -45,15 +44,17 @@ public class MessageResponseDto implements Serializable {
         this.updatedAt = updatedAt;
     }
 
+    
     public String jsonStringfy() {
-        return "{" +            
-            "'title':'" + title + "'," +
-            "'content':'" + content + "'," +
-            "'level':'" + level + "'," +
-            "'type':'" + messageType + "'," +
-            "'user':'" + user + "'," +
-            "'createdAt':'" + DateUtils.format(createdAt) + "'," +
-            "'updatedAt':'" + DateUtils.format(updatedAt) + "'" +
+        return "{" +
+            "\"id\":" + "\"" + id + "\"" +
+            ", \"title\":" + "\"" + title + "\"" +
+            ", \"content\":" + "\"" + content + "\"" +
+            ", \"level\":" + "\"" + level + "\"" +
+            ", \"type\":" + "\"" + messageType + "\"" +
+            ", \"user\":" + "\"" + user + "\"" +
+            ", \"createdAt\":" + "\"" + createdAt + "\"" +
+            ", \"updatedAt\":" + "\"" + updatedAt + "\"" +
             "}";
     }
 }

@@ -53,6 +53,12 @@ ldap:
   # Filtro de busca para localizar o usuário quando não se usa userDnPattern.
   # Exemplo AD: (sAMAccountName={0})
   searchFilter: ${LDAP_SEARCH_FILTER:(sAMAccountName={0})}
+  # Authentication containers (e.g. CN=Users) that will be prepended to baseDn for searches
+  authenticationContainers: ${LDAP_AUTH_CONTAINERS:CN=Users}
+  # Search scope: SUBTREE, ONELEVEL or OBJECT
+  searchScope: ${LDAP_SEARCH_SCOPE:ONELEVEL}
+  # Timeout for LDAP operations (seconds)
+  timeoutSeconds: ${LDAP_TIMEOUT_SECONDS:25}
   # Grupos permitidos para autenticação (DNs completos separados por ponto e vírgula)
   allowedGroups: ${LDAP_ALLOWED_GROUPS:}
   # Grupo de administradores (DN completo)
