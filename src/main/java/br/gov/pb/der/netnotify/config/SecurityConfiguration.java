@@ -2,38 +2,64 @@ package br.gov.pb.der.netnotify.config;
 
 import java.util.Arrays;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import br.gov.pb.der.netnotify.security.CustomLogoutHandler;
+import br.gov.pb.der.netnotify.security.CustomOidcUserService;
+import br.gov.pb.der.netnotify.security.KeycloakJwtAuthenticationConverter;
+import br.gov.pb.der.netnotify.security.KeycloakLogoutSuccessHandler;
+import lombok.RequiredArgsConstructor;
+
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
+@RequiredArgsConstructor
 public class SecurityConfiguration {
 
-    private final LdapAuthenticationFilter LdapAuthenticationFilter;
-    // private final ApiTokenAuthFilter apiTokenAuthFilter;
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    @Value("${keycloak.auth-server-url}")
+    private String keycloakServerUrl;
+
+    @Value("${keycloak.realm}")
+    private String realm;
+
+    private final KeycloakJwtAuthenticationConverter keycloakJwtConverter;
+    private final CustomLogoutHandler customLogoutHandler;
+    private final KeycloakLogoutSuccessHandler logoutSuccessHandler;
+    private final CustomOidcUserService customOidcUserService;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    public SecurityConfiguration(LdapAuthenticationFilter LdapAuthenticationFilter,
-            JwtAuthenticationFilter jwtAuthenticationFilter) {
-        this.LdapAuthenticationFilter = LdapAuthenticationFilter;
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    @Bean
+    public JwtDecoder jwtDecoder() {
+        String jwkSetUri = keycloakServerUrl + "/realms/" + realm + "/protocol/openid-connect/certs";
+        return NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+    }
+
+    @Bean
+    public JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(keycloakJwtConverter);
+        return converter;
     }
 
     @Bean
@@ -43,23 +69,26 @@ public class SecurityConfiguration {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .oauth2Login(oauth2 -> oauth2
+                        .loginPage("/auth/login")
+                        .defaultSuccessUrl("/dashboard", true)
+                        .failureUrl("/auth/login?error=true")
+                        .userInfoEndpoint(userInfo -> userInfo
+                                .oidcUserService(customOidcUserService)))
+                .logout(logout -> logout
+                        .logoutUrl("/auth/logout")
+                        .addLogoutHandler(customLogoutHandler)
+                        .logoutSuccessHandler(logoutSuccessHandler)
+                        .invalidateHttpSession(true)
+                        .clearAuthentication(true)
+                        .deleteCookies("JSESSIONID"))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/auth/**",
-                                "/public/**",
-                                "/hello",
-                                "/swagger-ui/**",
-                                "/V3/api-docs/**",
-                                "/swagger-ui.html",
-                                "/test-consumer/**",
-                                "/error/**")
-                        .permitAll()
-                        .requestMatchers("/profile/**", "/aux/**", "/hello").authenticated()
-                        .requestMatchers("/messages/**").hasAnyAuthority("ROLE_USER", "ROLE_SUPER")
-                        .requestMatchers("/admin/**").hasAuthority("ROLE_SUPER")
-                        .anyRequest().authenticated())
-                .addFilterBefore(LdapAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                        .requestMatchers("/auth/**", "/public/**", "/error").permitAll()
+                        .requestMatchers("/aux/**", "/messages/**", "/notify/**").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers("/me/**", "/profile/**").authenticated()
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
+                        .anyRequest().authenticated());
+
         return http.build();
     }
 
