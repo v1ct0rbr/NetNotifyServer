@@ -12,6 +12,12 @@ spring:
     queue: ${RABBITMQ_QUEUE:notification_queue}
     routing-key: ${RABBITMQ_ROUTING_KEY:notification_key}
     exchange-durable: ${RABBITMQ_EXCHANGE_DURABLE:true}
+
+  profiles:
+    active:
+    - local
+    include:
+    - keycloak
     
 
   datasource:
