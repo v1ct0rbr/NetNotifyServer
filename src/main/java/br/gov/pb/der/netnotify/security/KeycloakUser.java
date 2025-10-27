@@ -1,14 +1,16 @@
 package br.gov.pb.der.netnotify.security;
 
+import java.util.Collection;
+import java.util.Set;
+import java.util.UUID;
+
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
-
-import java.util.Collection;
-import java.util.Set;
 
 /**
  * Modelo de usuário que integra com o Keycloak
@@ -19,7 +21,7 @@ import java.util.Set;
 @AllArgsConstructor
 public class KeycloakUser implements UserDetails {
 
-    private String id;
+    private UUID id;
     private String username;
     private String email;
     private String firstName;

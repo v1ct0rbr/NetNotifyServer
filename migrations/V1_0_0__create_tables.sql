@@ -4,34 +4,26 @@
 CREATE SCHEMA IF NOT EXISTS auth;
 
 -- ROLES
-CREATE TABLE IF NOT EXISTS auth.role (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(50) NOT NULL UNIQUE
-);
 
 -- USERS
 CREATE TABLE IF NOT EXISTS auth.users (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(20) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
+    id UUID PRIMARY KEY,
+    username VARCHAR(100) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL,
-    enabled BOOLEAN DEFAULT TRUE,
-    account_non_expired BOOLEAN DEFAULT TRUE,
-    credentials_non_expired BOOLEAN DEFAULT TRUE,
-    account_non_locked BOOLEAN DEFAULT TRUE,
     full_name VARCHAR(255) NOT NULL,
+    first_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    active BOOLEAN DEFAULT TRUE,
+    preferences TEXT,
+    theme VARCHAR(50),
+    language VARCHAR(10),
+    timezone VARCHAR(50),
+    
 );
 
--- USERS_ROLES
-CREATE TABLE IF NOT EXISTS auth.users_roles (
-    user_id INTEGER NOT NULL,
-    role_id INTEGER NOT NULL,
-    PRIMARY KEY (user_id, role_id),
-    FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE,
-    FOREIGN KEY (role_id) REFERENCES auth.role(id) ON DELETE CASCADE
-);
+
 
 -- LEVEL
 CREATE TABLE IF NOT EXISTS Level (
@@ -48,6 +40,7 @@ CREATE TABLE IF NOT EXISTS message_type (
 -- MESSAGE
 CREATE TABLE IF NOT EXISTS message (
     id UUID PRIMARY KEY,
+    title VARCHAR(100),
     content TEXT,
     user_id INTEGER NOT NULL,
     level_id INTEGER,

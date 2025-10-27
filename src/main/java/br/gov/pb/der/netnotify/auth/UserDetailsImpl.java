@@ -28,7 +28,7 @@ public class UserDetailsImpl implements UserDetails {
          * SimpleGrantedAuthority, que é uma implementação simples de GrantedAuthority
          * 
          */
-        return user.getRoles().stream().map(role -> new SimpleGrantedAuthority(role.getName().name()))
+        return user.getApplicationRoles().stream().map(role -> new SimpleGrantedAuthority(role.name()))
                 .collect(Collectors.toList());
 
               
@@ -38,7 +38,7 @@ public class UserDetailsImpl implements UserDetails {
 
     @Override
     public String getPassword() {
-        return user.getPassword();
+        throw new UnsupportedOperationException();
     } // Retorna a credencial do usuário que criamos anteriormente
 
     @Override
@@ -63,7 +63,7 @@ public class UserDetailsImpl implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return user.getActive();
     }
 
 }

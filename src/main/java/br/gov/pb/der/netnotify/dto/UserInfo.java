@@ -2,9 +2,11 @@ package br.gov.pb.der.netnotify.dto;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Set;
 
 import br.gov.pb.der.netnotify.model.Role;
 import br.gov.pb.der.netnotify.model.User;
+import br.gov.pb.der.netnotify.model.User.ApplicationRole;
 import lombok.Data;
 
 @Data
@@ -19,7 +21,7 @@ public class UserInfo implements Serializable {
     private String fullName;
     private String username;
     private String email;
-    private List<Role> roles;
+    private Set<ApplicationRole> applicationRoles;
 
     public UserInfo() {
     }
@@ -28,7 +30,7 @@ public class UserInfo implements Serializable {
         this.fullName = userDetails.getFullName();
         this.username = userDetails.getUsername();
         this.email = userDetails.getEmail();
-        this.roles = userDetails.getRoles();
+        this.applicationRoles = userDetails.getApplicationRoles();
     }
 
     // Getters and Setters

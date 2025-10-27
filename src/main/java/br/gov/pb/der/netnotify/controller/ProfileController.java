@@ -24,7 +24,7 @@ public class ProfileController {
         userInfo.setUsername(user.getUsername());
         userInfo.setFullName(user.getFullName());
         userInfo.setEmail(user.getEmail());
-        userInfo.setRoles(user.getRoles());
+        userInfo.setApplicationRoles(user.getApplicationRoles());
         return userInfo;
     }
 

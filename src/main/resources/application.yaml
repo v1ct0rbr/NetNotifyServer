@@ -77,4 +77,5 @@ jwt:
 
 app:
   timezone: ${APP_TIMEZONE:America/Recife} # Timezone da aplicação, usado para datas e horários
+  react-app-url: ${REACT_APP_URL:http://localhost:3000} # URL do app React que receberá a autenticação
 

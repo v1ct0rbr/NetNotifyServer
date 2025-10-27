@@ -1,79 +1,284 @@
 package br.gov.pb.der.netnotify.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.stereotype.Service;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
-import br.gov.pb.der.netnotify.auth.UserDetailsImpl;
-import br.gov.pb.der.netnotify.dto.LoginUserDto;
-import br.gov.pb.der.netnotify.dto.RecoveryJwtTokenDto;
-import br.gov.pb.der.netnotify.dto.UserInfo;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import br.gov.pb.der.netnotify.model.User;
 import br.gov.pb.der.netnotify.repository.UserRepository;
+import br.gov.pb.der.netnotify.security.KeycloakUser;
+import br.gov.pb.der.netnotify.security.KeycloakUserService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Serviço que gerencia usuários locais integrados com Keycloak Este serviço
+ * sincroniza dados entre Keycloak e banco local
+ */
+@Slf4j
 @Service
+@RequiredArgsConstructor
+@Transactional
+@Profile("!dev")  // Exclui do profile dev
 public class UserService {
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
+    private final UserRepository userRepository;
+    private final KeycloakUserService keycloakUserService;
 
-    @Autowired
-    private JwtService jwtTokenService;
+    /**
+     * Obtém ou cria um usuário local baseado no usuário do Keycloak
+     */
+    public User getOrCreateUser() {
+        KeycloakUser keycloakUser = keycloakUserService.getCurrentUser();
 
-    @Autowired
-    private UserRepository userRepository;
-
-    // Método responsável por autenticar um usuário e retornar um token JWT
-    public RecoveryJwtTokenDto authenticateUser(LoginUserDto loginUserDto) {
-        // Cria um objeto de autenticação com o email e a senha do usuário
-        UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(
-                loginUserDto.getUsername(), loginUserDto.getPassword());
-
-        // // Autentica o usuário com as credenciais fornecidas
-        Authentication authentication = authenticationManager.authenticate(usernamePasswordAuthenticationToken);
-
-        // // Obtém o objeto UserDetails do usuário autenticado
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        // User userDetails = findByUsernameAndPassword(loginUserDto.getUsername(),
-        // loginUserDto.getPassword());
-        String token = jwtTokenService.generateToken(userDetails);
-        User user = (userDetails instanceof UserDetailsImpl
-                ? ((UserDetailsImpl) userDetails).getUser()
-                : null);
-        UserInfo userInfo = new UserInfo();
-        if (user != null) {
-            userInfo.setUsername(user.getUsername());
-            userInfo.setFullName(user.getFullName());
-            userInfo.setEmail(user.getEmail());
-            userInfo.setRoles(user.getRoles());
+        if (keycloakUser == null) {
+            throw new IllegalStateException("Usuário não está autenticado no Keycloak");
         }
-        // Gera um token JWT para o usuário autenticado
-        return new RecoveryJwtTokenDto(token, userInfo);
+
+        return getOrCreateUser(keycloakUser);
+    }
+
+    /**
+     * Obtém ou cria um usuário local baseado nos dados do Keycloak
+     */
+    public User getOrCreateUser(KeycloakUser keycloakUser) {
+        Optional<User> existingUser = userRepository.findById(keycloakUser.getId());
+
+        if (existingUser.isPresent()) {
+            // Atualiza dados do usuário existente
+            User user = existingUser.get();
+            syncUserWithKeycloak(user, keycloakUser);
+            user.registerLogin();
+            return userRepository.save(user);
+        } else {
+            // Cria novo usuário
+            return createUserFromKeycloak(keycloakUser);
+        }
     }
 
     public User getLoggedUser() {
-        User user = null;
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        KeycloakUser keycloakUser = keycloakUserService.getCurrentUser();
 
-        if (auth != null && auth.getPrincipal() instanceof UserDetailsImpl) {
-            UserDetailsImpl userDetails = (UserDetailsImpl) auth.getPrincipal();
-            user = userDetails.getUser(); // ou getUserEntity(), dependendo da sua implementação
-            if (user != null) {
-                user.setPassword(null);
+        if (keycloakUser == null) {
+            throw new IllegalStateException("Usuário não está autenticado no Keycloak");
+        }
+
+        return userRepository.findById(keycloakUser.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Usuário local não encontrado"));
+    }
+
+    /**
+     * Cria um novo usuário local baseado nos dados do Keycloak
+     */
+    private User createUserFromKeycloak(KeycloakUser keycloakUser) {
+        log.info("Criando novo usuário local para: {}", keycloakUser.getUsername());
+
+        User user = User.builder()
+                .id(keycloakUser.getId())
+                .username(keycloakUser.getUsername())
+                .email(keycloakUser.getEmail())
+                .fullName(keycloakUser.getFullName())
+                .firstLogin(LocalDateTime.now())
+                .lastLogin(LocalDateTime.now())
+                .active(true)
+                .theme(User.Theme.AUTO)
+                .language("pt-BR")
+                .timezone("America/Sao_Paulo")
+                .build();
+
+        // Mapear roles do Keycloak para roles da aplicação
+        Set<User.ApplicationRole> appRoles = mapKeycloakRolesToApplicationRoles(keycloakUser);
+        user.setApplicationRoles(appRoles);
+
+        return userRepository.save(user);
+    }
+
+    /**
+     * Sincroniza dados do usuário local com o Keycloak
+     */
+    private void syncUserWithKeycloak(User user, KeycloakUser keycloakUser) {
+        boolean changed = false;
+
+        if (!keycloakUser.getUsername().equals(user.getUsername())
+                || !keycloakUser.getEmail().equals(user.getEmail())
+                || !keycloakUser.getFullName().equals(user.getFullName())) {
+
+            user.syncWithKeycloak(
+                    keycloakUser.getUsername(),
+                    keycloakUser.getEmail(),
+                    keycloakUser.getFullName()
+            );
+            changed = true;
+        }
+
+        // Atualizar roles se necessário
+        Set<User.ApplicationRole> newRoles = mapKeycloakRolesToApplicationRoles(keycloakUser);
+        if (!newRoles.equals(user.getApplicationRoles())) {
+            user.setApplicationRoles(newRoles);
+            changed = true;
+        }
+
+        if (changed) {
+            log.debug("Sincronizando dados do usuário: {}", user.getUsername());
+        }
+    }
+
+    /**
+     * Mapeia roles do Keycloak para roles da aplicação
+     */
+    private Set<User.ApplicationRole> mapKeycloakRolesToApplicationRoles(KeycloakUser keycloakUser) {
+        Set<User.ApplicationRole> appRoles = Set.of();
+
+        if (keycloakUser.hasRole("ADMIN")) {
+            appRoles = Set.of(
+                    User.ApplicationRole.SYSTEM_ADMIN,
+                    User.ApplicationRole.SERVER_MANAGER,
+                    User.ApplicationRole.ALERT_MANAGER,
+                    User.ApplicationRole.REPORT_VIEWER,
+                    User.ApplicationRole.MONITORING_VIEWER
+            );
+        } else if (keycloakUser.hasRole("USER")) {
+            appRoles = Set.of(
+                    User.ApplicationRole.MONITORING_VIEWER,
+                    User.ApplicationRole.REPORT_VIEWER
+            );
+        }
+
+        // Roles específicas adicionais
+        if (keycloakUser.hasRole("SERVER_MANAGER")) {
+            appRoles = Set.of(User.ApplicationRole.SERVER_MANAGER);
+        }
+
+        if (keycloakUser.hasRole("ALERT_MANAGER")) {
+            appRoles = Set.of(User.ApplicationRole.ALERT_MANAGER);
+        }
+
+        return appRoles;
+    }
+
+    /**
+     * Busca usuário por ID do Keycloak
+     */
+    @Transactional(readOnly = true)
+    public Optional<User> findByKeycloakId(String keycloakId) {
+        return userRepository.findByKeycloakId(keycloakId);
+    }
+
+    /**
+     * Busca usuário por username
+     */
+    @Transactional(readOnly = true)
+    public Optional<User> findByUsername(String username) {
+        return userRepository.findByUsername(username);
+    }
+
+    /**
+     * Lista todos os usuários ativos
+     */
+    @Transactional(readOnly = true)
+    public List<User> findActiveUsers() {
+        return userRepository.findByActiveTrue();
+    }
+
+    /**
+     * Atualiza preferências do usuário
+     */
+    public User updateUserPreferences(String keycloakId, String preferences,
+            User.Theme theme, String language, String timezone) {
+        User user = userRepository.findByKeycloakId(keycloakId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
+
+        user.setPreferences(preferences);
+        user.setTheme(theme);
+        user.setLanguage(language);
+        user.setTimezone(timezone);
+
+        return userRepository.save(user);
+    }
+
+    /**
+     * Desativa usuário
+     */
+    public void deactivateUser(String keycloakId) {
+        User user = userRepository.findByKeycloakId(keycloakId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
+
+        user.setActive(false);
+        userRepository.save(user);
+
+        log.info("Usuário desativado: {}", user.getUsername());
+    }
+
+    /**
+     * Reativa usuário
+     */
+    public void activateUser(String keycloakId) {
+        User user = userRepository.findByKeycloakId(keycloakId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
+
+        user.setActive(true);
+        userRepository.save(user);
+
+        log.info("Usuário reativado: {}", user.getUsername());
+    }
+
+    /**
+     * Estatísticas de usuários
+     */
+    @Transactional(readOnly = true)
+    public UserStats getUserStats() {
+        LocalDateTime startOfDay = LocalDateTime.now().toLocalDate().atStartOfDay();
+        LocalDateTime endOfDay = startOfDay.plusDays(1);
+
+        return UserStats.builder()
+                .totalActiveUsers(userRepository.countByActiveTrue())
+                .newUsersToday(userRepository.countNewUsersToday(startOfDay, endOfDay))
+                .activeUsersLast24h(userRepository.countActiveUsersSince(LocalDateTime.now().minusDays(1)))
+                .build();
+    }
+
+    /**
+     * Classe para estatísticas de usuários
+     */
+    public record UserStats(
+            long totalActiveUsers,
+            long newUsersToday,
+            long activeUsersLast24h
+            ) {
+
+        public static UserStatsBuilder builder() {
+            return new UserStatsBuilder();
+        }
+
+        public static class UserStatsBuilder {
+
+            private long totalActiveUsers;
+            private long newUsersToday;
+            private long activeUsersLast24h;
+
+            public UserStatsBuilder totalActiveUsers(long totalActiveUsers) {
+                this.totalActiveUsers = totalActiveUsers;
+                return this;
+            }
+
+            public UserStatsBuilder newUsersToday(long newUsersToday) {
+                this.newUsersToday = newUsersToday;
+                return this;
+            }
+
+            public UserStatsBuilder activeUsersLast24h(long activeUsersLast24h) {
+                this.activeUsersLast24h = activeUsersLast24h;
+                return this;
+            }
+
+            public UserStats build() {
+                return new UserStats(totalActiveUsers, newUsersToday, activeUsersLast24h);
             }
         }
-        return user;
-
     }
-
-    @Cacheable(value = "users", key = "#username")
-    public User findByUsername(String username) {
-        return userRepository.findByUsername(username).get();
-    }
-
 }
