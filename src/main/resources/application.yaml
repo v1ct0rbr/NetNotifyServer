@@ -96,6 +96,15 @@ jwt:
   secret-key: ${JWT_SECRET:defaultSecretKey} # Chave secreta para assinar os tokens JWT
   expiration-time: ${JWT_EXPIRATION:3600000} # Tempo de expiração em segundos
 
+keycloak:
+  server-url: ${KEYCLOAK_AUTH_SERVER_URL:https://seudominio.com.br}
+  realm: ${KEYCLOAK_REALM:testes}
+  client-id: ${KEYCLOAK_CLIENT_ID:teste-cli}
+  client-secret: ${KEYCLOAK_CLIENT_SECRET:} # IMPORTANT: Must be set in environment or .env
+  # Default redirect_uri for token exchange. Must match what's registered in Keycloak client.
+  # Spring Security default: http://localhost:8080/login/oauth2/code/keycloak
+  redirect-uri: ${KEYCLOAK_REDIRECT_URI:http://localhost:8080/login/oauth2/code/keycloak}
+
 app:
   timezone: ${APP_TIMEZONE:America/Recife} # Timezone da aplicação, usado para datas e horários
   react-app-url: ${REACT_APP_URL:http://localhost:3000} # URL do app React que receberá a autenticação

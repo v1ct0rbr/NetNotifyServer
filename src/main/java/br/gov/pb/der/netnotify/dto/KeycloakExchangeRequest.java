@@ -1,5 +1,7 @@
 package br.gov.pb.der.netnotify.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -13,6 +15,7 @@ import lombok.NoArgsConstructor;
 public class KeycloakExchangeRequest {
     private String code;              // Authorization code do Keycloak
     private String state;             // CSRF token
-    private String sessionState;     // Session state do Keycloak
-    private String redirectUri;       // URI para redirecionar após exchange
+    @JsonProperty("session_state")
+    private String sessionState;     // Session state do Keycloak    
+    private String redirect_uri;       // URI para redirecionar após exchange
 }

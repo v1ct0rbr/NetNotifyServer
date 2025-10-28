@@ -4,28 +4,20 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import br.gov.pb.der.netnotify.auth.UserDetailsImpl;
-import br.gov.pb.der.netnotify.dto.KeycloakExchangeRequest;
-import br.gov.pb.der.netnotify.dto.RecoveryJwtTokenDto;
 import br.gov.pb.der.netnotify.model.User;
 import br.gov.pb.der.netnotify.security.KeycloakUser;
 import br.gov.pb.der.netnotify.security.KeycloakUserService;
-import br.gov.pb.der.netnotify.service.JwtService;
-import br.gov.pb.der.netnotify.service.KeycloakService;
 import br.gov.pb.der.netnotify.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import br.gov.pb.der.netnotify.security.KeycloakUserService;
 
 /**
  * Controller responsável por gerenciar autenticação e autorização
@@ -34,7 +26,6 @@ import lombok.extern.slf4j.Slf4j;
 @Controller
 @RequiredArgsConstructor
 @Profile("!dev") // Exclui do profile dev
-@RequestMapping("/auth")
 public class AuthController {
 
     @Value("${keycloak.auth-server-url}")
@@ -46,13 +37,8 @@ public class AuthController {
     @Value("${keycloak.resource}")
     private String clientId;
 
-    @Value("${app.react-app-url}")
-    private String reactAppUrl;
-
     private final UserService userService;
     private final KeycloakUserService keycloakUserService;
-    private final KeycloakService keycloakService;
-    private final JwtService jwtService;
 
     /**
      * Página de login
@@ -68,10 +54,10 @@ public class AuthController {
 
         // IMPORTANTE: Não redirecionar se há erro ou logout, mesmo que esteja
         // autenticado
-        if (error == null && logout == null
-                && authentication != null && authentication.isAuthenticated()
-                && !authentication.getName().equals("anonymousUser")
-                && authentication instanceof org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken) {
+        if (error == null && logout == null &&
+                authentication != null && authentication.isAuthenticated() &&
+                !authentication.getName().equals("anonymousUser") &&
+                authentication instanceof org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken) {
             log.info("Usuário OAuth2 já autenticado: {} - redirecionando para dashboard", authentication.getName());
             return "redirect:/dashboard";
         }
@@ -89,118 +75,42 @@ public class AuthController {
         String keycloakLoginUrl = "/oauth2/authorization/keycloak";
         model.addAttribute("keycloakLoginUrl", keycloakLoginUrl);
 
-        return "redirect:" + reactAppUrl + "/?login=true";
+        return "pages/login";
     }
-
-    @PostMapping("/keycloak/exchange")
-    public ResponseEntity<RecoveryJwtTokenDto> exchangeKeycloakCode(
-            @RequestBody KeycloakExchangeRequest request
-    ) {
-        try {
-            RecoveryJwtTokenDto response = keycloakService.exchangeAuthorizationCode(
-                request.getCode(),
-                request.getState(),
-                request.getSessionState(),
-                request.getRedirectUri()
-            );
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest()
-                .body(new RecoveryJwtTokenDto(null, null));
-        }
-    }
-
-
 
     /**
-     * Página inicial - fallback caso usuário acesse /auth diretamente
-     * O fluxo principal agora é via OAuth2AuthenticationSuccessHandler que
-     * redireciona para React
-     * 
-     * Este endpoint serve apenas como fallback para casos onde o usuário acessa
-     * /auth diretamente
-     * estando já autenticado, gerando o JWT e redirecionando para o React
+     * Página inicial - redireciona para dashboard se autenticado ou login se não
+     * autenticado
      */
-    @GetMapping(value = { "", "/" })
+    @GetMapping("/")
     public String homePage(HttpServletRequest request, Authentication authentication) {
-        log.info("Acesso direto à /auth - Authentication: {}, Principal: {}, Authenticated: {}",
+        log.info("Acesso à página inicial - Authentication: {}, Principal: {}",
                 authentication != null ? authentication.getClass().getSimpleName() : "null",
-                authentication != null ? authentication.getName() : "null",
-                authentication != null ? authentication.isAuthenticated() : "null");
+                authentication != null ? authentication.getName() : "null");
 
-        // Verificar se está autenticado com OAuth2
-        if (authentication == null || !authentication.isAuthenticated()
-                || authentication.getName().equals("anonymousUser")) {
-            log.warn("Usuário não autenticado no /auth - iniciando OAuth2 login");
-            return "redirect:/oauth2/authorization/keycloak";
+        // Verificar se está autenticado com OAuth2 - versão mais segura
+        if (authentication != null && authentication.isAuthenticated() &&
+                !authentication.getName().equals("anonymousUser")) {
+
+            try {
+                // Verificar se é OAuth2AuthenticationToken (login via Keycloak)
+                if (authentication instanceof org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken) {
+                    log.info("Usuário OAuth2 autenticado: {} - redirecionando para dashboard",
+                            authentication.getName());
+                    return "redirect:/dashboard";
+                }
+
+                log.info("Usuário autenticado (não OAuth2): {} - redirecionando para dashboard",
+                        authentication.getName());
+                return "redirect:/dashboard";
+            } catch (Exception e) {
+                log.error("Erro ao processar autenticação na página inicial: {}", e.getMessage(), e);
+                // Em caso de erro, redirecionar para login sem erro para evitar loop
+            }
         }
 
-        try {
-            // Verificar se é OAuth2AuthenticationToken (login via Keycloak)
-            if (!(authentication instanceof org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken)) {
-                log.warn("Authentication não é OAuth2AuthenticationToken: {} - iniciando OAuth2 login",
-                        authentication.getClass().getSimpleName());
-                return "redirect:/oauth2/authorization/keycloak";
-            }
-
-            log.info("Usuário OAuth2 já autenticado acessando /auth diretamente: {}", authentication.getName());
-
-            // Obter ou criar usuário local integrado com Keycloak
-            User localUser = userService.getOrCreateUser();
-            KeycloakUser keycloakUser = keycloakUserService.getCurrentUser();
-
-            if (localUser == null || keycloakUser == null) {
-                log.error("Falha ao obter dados do usuário: localUser={}, keycloakUser={}",
-                        localUser, keycloakUser);
-                return "redirect:" + reactAppUrl + "?error=user_not_found";
-            }
-
-            // Gerar JWT usando JwtService baseado no usuário local
-            UserDetailsImpl userDetails = new UserDetailsImpl(localUser);
-            String jwtToken = jwtService.generateToken(userDetails);
-
-            log.info("Token JWT gerado com sucesso para usuário: {}", localUser.getUsername());
-
-            // Redirecionar para app React com token
-            String redirectUrl = buildReactAppUrl(jwtToken);
-
-            log.info("Redirecionando para app React após acesso direto a /auth");
-
-            return "redirect:" + redirectUrl;
-
-        } catch (Exception e) {
-            log.error("Erro ao processar autenticação na página /auth: {}", e.getMessage(), e);
-            return "redirect:" + reactAppUrl + "?error=authentication_error";
-        }
-    }
-
-    /**
-     * Constrói a URL do app React com os parâmetros de autenticação (token,
-     * user, email, etc)
-     *
-     * @param jwtToken Token JWT gerado para a aplicação
-     * @param user     Usuário autenticado
-     * @return URL do app React com parâmetros de autenticação
-     */
-    private String buildReactAppUrl(String jwtToken) {
-        try {
-            // Codificar parâmetros para URL
-
-            // Construir URL com parâmetros
-            StringBuilder url = new StringBuilder(reactAppUrl);
-
-            // Adicionar rota se a URL não terminar com /
-            if (!url.toString().endsWith("/")) {
-                url.append("/");
-            }
-            // Adicionar rota de callback/dashboard e parâmetros de autenticação
-            url.append("?token=").append(jwtToken);
-
-            return url.toString();
-        } catch (Exception e) {
-            log.error("Erro ao construir URL do app React: {}", e.getMessage(), e);
-            return reactAppUrl;
-        }
+        log.info("Usuário não autenticado ou erro - redirecionando para login");
+        return "redirect:/login";
     }
 
     /**
@@ -217,8 +127,8 @@ public class AuthController {
                     authentication != null ? authentication.getName() : "null");
 
             // Verificar autenticação primeiro
-            if (authentication == null || !authentication.isAuthenticated()
-                    || authentication.getName().equals("anonymousUser")) {
+            if (authentication == null || !authentication.isAuthenticated() ||
+                    authentication.getName().equals("anonymousUser")) {
                 log.warn("Usuário não autenticado tentando acessar dashboard - redirecionando para login");
                 return "redirect:/login?error=authentication_required";
             }
@@ -323,8 +233,8 @@ public class AuthController {
     }
 
     /**
-     * Endpoint de logout que redireciona para o Keycloak O Spring Security já
-     * processará o logout local via CustomLogoutHandler
+     * Endpoint de logout que redireciona para o Keycloak
+     * O Spring Security já processará o logout local via CustomLogoutHandler
      */
     @GetMapping("/keycloak-logout")
     public String keycloakLogout(HttpServletRequest request, Authentication authentication) {
@@ -334,10 +244,10 @@ public class AuthController {
 
         // URL de logout do Keycloak com parâmetros para finalizar sessão SSO
         String baseUrl = getBaseUrl(request);
-        String keycloakLogoutUrl = keycloakServerUrl + "/realms/" + realm
-                + "/protocol/openid-connect/logout"
-                + "?post_logout_redirect_uri=" + baseUrl + "/login?logout=true"
-                + "&client_id=" + clientId;
+        String keycloakLogoutUrl = keycloakServerUrl + "/realms/" + realm +
+                "/protocol/openid-connect/logout" +
+                "?post_logout_redirect_uri=" + baseUrl + "/login?logout=true" +
+                "&client_id=" + clientId;
 
         log.info("Redirecionando para logout do Keycloak: {}", keycloakLogoutUrl);
         return "redirect:" + keycloakLogoutUrl;
@@ -390,8 +300,8 @@ public class AuthController {
      * Obtém a URL base da aplicação
      */
     private String getBaseUrl(HttpServletRequest request) {
-        return request.getScheme() + "://" + request.getServerName()
-                + (request.getServerPort() != 80 && request.getServerPort() != 443 ? ":" + request.getServerPort() : "")
+        return request.getScheme() + "://" + request.getServerName() +
+                (request.getServerPort() != 80 && request.getServerPort() != 443 ? ":" + request.getServerPort() : "")
                 + request.getContextPath();
     }
 }
