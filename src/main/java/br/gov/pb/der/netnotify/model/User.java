@@ -22,13 +22,14 @@ import lombok.NoArgsConstructor;
 
 /**
  * Entidade User que armazena informações complementares aos dados do Keycloak
- * Esta entidade NÃO substitui o Keycloak, mas complementa com dados específicos da aplicação
+ * Esta entidade NÃO substitui o Keycloak, mas complementa com dados específicos
+ * da aplicação
  */
 @Entity
 @Table(name = "users", schema = "auth", indexes = {
-    @Index(name = "idx_user_keycloak_id", columnList = "keycloak_id"),
-    @Index(name = "idx_user_email", columnList = "email"),
-    @Index(name = "idx_user_username", columnList = "username")
+        @Index(name = "idx_user_keycloak_id", columnList = "keycloak_id"),
+        @Index(name = "idx_user_email", columnList = "email"),
+        @Index(name = "idx_user_username", columnList = "username")
 })
 
 @Data
@@ -37,14 +38,13 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class User {
 
-   
     /**
      * ID do usuário no Keycloak (Subject do JWT)
      * Este é o campo que faz a ligação com o Keycloak
      */
     @Id
-    @Column(name = "id", nullable = false, unique = true, length = 100)
-    private UUID id;
+    @Column(name = "id", updatable = false, nullable = false)
+    private UUID id; // ID vem diretamente do Keycloak, não é gerado automaticamente
 
     /**
      * Nome de usuário (sincronizado com Keycloak)
@@ -114,13 +114,18 @@ public class User {
     /**
      * Roles locais específicas da aplicação (complementam as do Keycloak)
      */
-    /* @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(
-        name = "user_roles",
-        joinColumns = @JoinColumn(name = "user_id")
-    )
-    @Column(name = "role")
-    @Enumerated(EnumType.STRING) */
+    /*
+     * @ElementCollection(fetch = FetchType.EAGER)
+     * 
+     * @CollectionTable(
+     * name = "user_roles",
+     * joinColumns = @JoinColumn(name = "user_id")
+     * )
+     * 
+     * @Column(name = "role")
+     * 
+     * @Enumerated(EnumType.STRING)
+     */
     @Transient
     private Set<ApplicationRole> applicationRoles;
 
@@ -150,11 +155,11 @@ public class User {
      */
     public enum ApplicationRole {
         // Roles específicas do ServerWatch
-        SERVER_MANAGER,     // Pode gerenciar servidores
-        ALERT_MANAGER,      // Pode gerenciar alertas
-        REPORT_VIEWER,      // Pode visualizar relatórios
-        SYSTEM_ADMIN,       // Administração completa do sistema
-        MONITORING_VIEWER   // Apenas visualização de monitoramento
+        SERVER_MANAGER, // Pode gerenciar servidores
+        ALERT_MANAGER, // Pode gerenciar alertas
+        REPORT_VIEWER, // Pode visualizar relatórios
+        SYSTEM_ADMIN, // Administração completa do sistema
+        MONITORING_VIEWER // Apenas visualização de monitoramento
     }
 
     /**
@@ -182,4 +187,5 @@ public class User {
         this.email = email;
         this.fullName = fullName;
     }
+
 }

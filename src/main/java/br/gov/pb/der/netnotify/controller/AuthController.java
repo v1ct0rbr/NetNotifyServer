@@ -86,37 +86,37 @@ public class AuthController {
     }
 
     /**
-     * Página inicial - retorna informações de JWT do usuário autenticado e
-     * redireciona para React Endpoint: GET /auth/
-     *
-     * Fluxo: 1. Verifica se usuário está autenticado via OAuth2 (Keycloak) 2.
-     * Se autenticado: gera JWT da aplicação, constrói URL com token e dados do
-     * usuário 3. Redireciona para app React com parâmetros:
-     * ?token=...&user=...&email=...&fullName=... 4. Se não autenticado:
-     * redireciona para login
+     * Página inicial - fallback caso usuário acesse /auth diretamente
+     * O fluxo principal agora é via OAuth2AuthenticationSuccessHandler que
+     * redireciona para React
+     * 
+     * Este endpoint serve apenas como fallback para casos onde o usuário acessa
+     * /auth diretamente
+     * estando já autenticado, gerando o JWT e redirecionando para o React
      */
-    @GetMapping("/")
+    @GetMapping(value = { "", "/" })
     public String homePage(HttpServletRequest request, Authentication authentication) {
-        log.info("Acesso à página inicial - Authentication: {}, Principal: {}",
+        log.info("Acesso direto à /auth - Authentication: {}, Principal: {}, Authenticated: {}",
                 authentication != null ? authentication.getClass().getSimpleName() : "null",
-                authentication != null ? authentication.getName() : "null");
+                authentication != null ? authentication.getName() : "null",
+                authentication != null ? authentication.isAuthenticated() : "null");
 
         // Verificar se está autenticado com OAuth2
         if (authentication == null || !authentication.isAuthenticated()
                 || authentication.getName().equals("anonymousUser")) {
-            log.warn("Usuário não autenticado - redirecionando para login");
-            return "redirect:/auth/login";
+            log.warn("Usuário não autenticado no /auth - iniciando OAuth2 login");
+            return "redirect:/oauth2/authorization/keycloak";
         }
 
         try {
             // Verificar se é OAuth2AuthenticationToken (login via Keycloak)
             if (!(authentication instanceof org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken)) {
-                log.warn("Authentication não é OAuth2AuthenticationToken: {} - redirecionando para login",
+                log.warn("Authentication não é OAuth2AuthenticationToken: {} - iniciando OAuth2 login",
                         authentication.getClass().getSimpleName());
-                return "redirect:/auth/login?error=invalid_auth";
+                return "redirect:/oauth2/authorization/keycloak";
             }
 
-            log.info("Usuário OAuth2 autenticado: {}", authentication.getName());
+            log.info("Usuário OAuth2 já autenticado acessando /auth diretamente: {}", authentication.getName());
 
             // Obter ou criar usuário local integrado com Keycloak
             User localUser = userService.getOrCreateUser();
@@ -125,7 +125,7 @@ public class AuthController {
             if (localUser == null || keycloakUser == null) {
                 log.error("Falha ao obter dados do usuário: localUser={}, keycloakUser={}",
                         localUser, keycloakUser);
-                return "redirect:/auth/login?error=user_not_found";
+                return "redirect:" + reactAppUrl + "?error=user_not_found";
             }
 
             // Gerar JWT usando JwtService baseado no usuário local
@@ -134,16 +134,16 @@ public class AuthController {
 
             log.info("Token JWT gerado com sucesso para usuário: {}", localUser.getUsername());
 
-            // Construir URL de redirect para o app React com parâmetros de autenticação
+            // Redirecionar para app React com token
             String redirectUrl = buildReactAppUrl(jwtToken);
 
-            log.info("Redirecionando para app React: {}", redirectUrl.replaceAll("token=[^&]*", "token=***"));
+            log.info("Redirecionando para app React após acesso direto a /auth");
 
             return "redirect:" + redirectUrl;
 
         } catch (Exception e) {
-            log.error("Erro ao processar autenticação na página inicial: {}", e.getMessage(), e);
-            return "redirect:/auth/login?error=authentication_error";
+            log.error("Erro ao processar autenticação na página /auth: {}", e.getMessage(), e);
+            return "redirect:" + reactAppUrl + "?error=authentication_error";
         }
     }
 
@@ -152,7 +152,7 @@ public class AuthController {
      * user, email, etc)
      *
      * @param jwtToken Token JWT gerado para a aplicação
-     * @param user Usuário autenticado
+     * @param user     Usuário autenticado
      * @return URL do app React com parâmetros de autenticação
      */
     private String buildReactAppUrl(String jwtToken) {
@@ -166,7 +166,7 @@ public class AuthController {
             if (!url.toString().endsWith("/")) {
                 url.append("/");
             }
-            // Adicionar rota de callback/dashboard e parâmetros de autenticação            
+            // Adicionar rota de callback/dashboard e parâmetros de autenticação
             url.append("?token=").append(jwtToken);
 
             return url.toString();

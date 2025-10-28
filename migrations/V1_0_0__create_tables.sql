@@ -19,11 +19,8 @@ CREATE TABLE IF NOT EXISTS auth.users (
     preferences TEXT,
     theme VARCHAR(50),
     language VARCHAR(10),
-    timezone VARCHAR(50),
-    
+    timezone VARCHAR(50)    
 );
-
-
 
 -- LEVEL
 CREATE TABLE IF NOT EXISTS Level (
@@ -42,7 +39,7 @@ CREATE TABLE IF NOT EXISTS message (
     id UUID PRIMARY KEY,
     title VARCHAR(100),
     content TEXT,
-    user_id INTEGER NOT NULL,
+    user_id UUID,
     level_id INTEGER,
     type_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
@@ -24,7 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 @Transactional
-@Profile("!dev")  // Exclui do profile dev
+@Profile("!dev") // Exclui do profile dev
 public class UserService {
 
     private final UserRepository userRepository;
@@ -111,8 +112,7 @@ public class UserService {
             user.syncWithKeycloak(
                     keycloakUser.getUsername(),
                     keycloakUser.getEmail(),
-                    keycloakUser.getFullName()
-            );
+                    keycloakUser.getFullName());
             changed = true;
         }
 
@@ -140,13 +140,11 @@ public class UserService {
                     User.ApplicationRole.SERVER_MANAGER,
                     User.ApplicationRole.ALERT_MANAGER,
                     User.ApplicationRole.REPORT_VIEWER,
-                    User.ApplicationRole.MONITORING_VIEWER
-            );
+                    User.ApplicationRole.MONITORING_VIEWER);
         } else if (keycloakUser.hasRole("USER")) {
             appRoles = Set.of(
                     User.ApplicationRole.MONITORING_VIEWER,
-                    User.ApplicationRole.REPORT_VIEWER
-            );
+                    User.ApplicationRole.REPORT_VIEWER);
         }
 
         // Roles específicas adicionais
@@ -165,8 +163,8 @@ public class UserService {
      * Busca usuário por ID do Keycloak
      */
     @Transactional(readOnly = true)
-    public Optional<User> findByKeycloakId(String keycloakId) {
-        return userRepository.findByKeycloakId(keycloakId);
+    public Optional<User> findById(UUID keycloakId) {
+        return userRepository.findById(keycloakId);
     }
 
     /**
@@ -188,9 +186,9 @@ public class UserService {
     /**
      * Atualiza preferências do usuário
      */
-    public User updateUserPreferences(String keycloakId, String preferences,
+    public User updateUserPreferences(UUID keycloakId, String preferences,
             User.Theme theme, String language, String timezone) {
-        User user = userRepository.findByKeycloakId(keycloakId)
+        User user = userRepository.findById(keycloakId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
 
         user.setPreferences(preferences);
@@ -204,8 +202,8 @@ public class UserService {
     /**
      * Desativa usuário
      */
-    public void deactivateUser(String keycloakId) {
-        User user = userRepository.findByKeycloakId(keycloakId)
+    public void deactivateUser(UUID keycloakId) {
+        User user = userRepository.findById(keycloakId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
 
         user.setActive(false);
@@ -217,8 +215,8 @@ public class UserService {
     /**
      * Reativa usuário
      */
-    public void activateUser(String keycloakId) {
-        User user = userRepository.findByKeycloakId(keycloakId)
+    public void activateUser(UUID keycloakId) {
+        User user = userRepository.findById(keycloakId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
 
         user.setActive(true);
@@ -248,8 +246,7 @@ public class UserService {
     public record UserStats(
             long totalActiveUsers,
             long newUsersToday,
-            long activeUsersLast24h
-            ) {
+            long activeUsersLast24h) {
 
         public static UserStatsBuilder builder() {
             return new UserStatsBuilder();

@@ -35,8 +35,29 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}      
+      password: ${REDIS_PASSWORD:}
 
+  security:
+    oauth2:
+      client:
+        registration:
+          keycloak:
+            client-id: ${KEYCLOAK_CLIENT_ID:teste-cli}
+            # IMPORTANT: set KEYCLOAK_CLIENT_SECRET in environment or .env for confidential clients
+            client-secret: ${KEYCLOAK_CLIENT_SECRET:}
+            authorization-grant-type: authorization_code
+            # Spring OAuth2 default callback: /login/oauth2/code/{registrationId}
+            # Set this URL in Keycloak Valid Redirect URIs: http://localhost:8080/login/oauth2/code/keycloak
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope:
+              - openid
+              - profile
+              - email
+        provider:
+          keycloak:
+            issuer-uri: ${KEYCLOAK_AUTH_SERVER_URL:https://seudominio.com.br}/realms/${KEYCLOAK_REALM:testes}
+            user-name-attribute: preferred_username
+      
   # Spring LDAP auto-configuration properties (mapped from environment variables)
   ldap:
     urls: ${LDAP_URL:}

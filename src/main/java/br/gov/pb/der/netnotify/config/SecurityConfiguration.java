@@ -25,6 +25,7 @@ import br.gov.pb.der.netnotify.security.CustomLogoutHandler;
 import br.gov.pb.der.netnotify.security.CustomOidcUserService;
 import br.gov.pb.der.netnotify.security.KeycloakJwtAuthenticationConverter;
 import br.gov.pb.der.netnotify.security.KeycloakLogoutSuccessHandler;
+import br.gov.pb.der.netnotify.security.OAuth2AuthenticationSuccessHandler;
 import lombok.RequiredArgsConstructor;
 
 @Configuration
@@ -43,6 +44,7 @@ public class SecurityConfiguration {
     private final CustomLogoutHandler customLogoutHandler;
     private final KeycloakLogoutSuccessHandler logoutSuccessHandler;
     private final CustomOidcUserService customOidcUserService;
+    private final OAuth2AuthenticationSuccessHandler oauth2AuthenticationSuccessHandler;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -71,7 +73,7 @@ public class SecurityConfiguration {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .oauth2Login(oauth2 -> oauth2
                         .loginPage("/auth/login")
-                        .defaultSuccessUrl("/dashboard", true)
+                        .successHandler(oauth2AuthenticationSuccessHandler)
                         .failureUrl("/auth/login?error=true")
                         .userInfoEndpoint(userInfo -> userInfo
                                 .oidcUserService(customOidcUserService)))

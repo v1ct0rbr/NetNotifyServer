@@ -14,14 +14,10 @@ import br.gov.pb.der.netnotify.model.User;
 
 /**
  * Repositório para gerenciar usuários locais da aplicação
+ * O ID do usuário corresponde diretamente ao ID do Keycloak (UUID)
  */
 @Repository
 public interface UserRepository extends JpaRepository<User, UUID> {
-
-    /**
-     * Busca usuário pelo ID do Keycloak
-     */
-    Optional<User> findByKeycloakId(String keycloakId);
 
     /**
      * Busca usuário pelo username
@@ -32,11 +28,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
      * Busca usuário pelo email
      */
     Optional<User> findByEmail(String email);
-
-    /**
-     * Verifica se existe usuário com o Keycloak ID
-     */
-    boolean existsByKeycloakId(String keycloakId);
 
     /**
      * Verifica se existe usuário com o username
@@ -54,17 +45,11 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     List<User> findByActiveTrue();
 
     /**
-     * Busca usuários por role da aplicação
-     */
-    @Query("SELECT u FROM User u JOIN u.applicationRoles r WHERE r = :role AND u.active = true")
-    List<User> findByApplicationRole(@Param("role") User.ApplicationRole role);
-
-    /**
      * Busca usuários que fizeram login em um período específico
      */
     @Query("SELECT u FROM User u WHERE u.lastLogin >= :startDate AND u.lastLogin <= :endDate")
-    List<User> findByLastLoginBetween(@Param("startDate") LocalDateTime startDate, 
-                                     @Param("endDate") LocalDateTime endDate);
+    List<User> findByLastLoginBetween(@Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
 
     /**
      * Conta usuários ativos
