@@ -4,18 +4,24 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import br.gov.pb.der.netnotify.auth.UserDetailsImpl;
+import br.gov.pb.der.netnotify.dto.KeycloakExchangeRequest;
+import br.gov.pb.der.netnotify.dto.RecoveryJwtTokenDto;
 import br.gov.pb.der.netnotify.model.User;
 import br.gov.pb.der.netnotify.security.KeycloakUser;
 import br.gov.pb.der.netnotify.security.KeycloakUserService;
 import br.gov.pb.der.netnotify.service.JwtService;
+import br.gov.pb.der.netnotify.service.KeycloakService;
 import br.gov.pb.der.netnotify.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +51,7 @@ public class AuthController {
 
     private final UserService userService;
     private final KeycloakUserService keycloakUserService;
+    private final KeycloakService keycloakService;
     private final JwtService jwtService;
 
     /**
@@ -82,8 +89,28 @@ public class AuthController {
         String keycloakLoginUrl = "/oauth2/authorization/keycloak";
         model.addAttribute("keycloakLoginUrl", keycloakLoginUrl);
 
-        return "pages/login";
+        return "redirect:" + reactAppUrl + "/?login=true";
     }
+
+    @PostMapping("/keycloak/exchange")
+    public ResponseEntity<RecoveryJwtTokenDto> exchangeKeycloakCode(
+            @RequestBody KeycloakExchangeRequest request
+    ) {
+        try {
+            RecoveryJwtTokenDto response = keycloakService.exchangeAuthorizationCode(
+                request.getCode(),
+                request.getState(),
+                request.getSessionState(),
+                request.getRedirectUri()
+            );
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(new RecoveryJwtTokenDto(null, null));
+        }
+    }
+
+
 
     /**
      * Página inicial - fallback caso usuário acesse /auth diretamente
