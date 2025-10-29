@@ -39,73 +39,16 @@ spring:
 
   security:
     oauth2:
-      client:
-        registration:
-          keycloak:
-            client-id: ${KEYCLOAK_CLIENT_ID:teste-cli}
-            # IMPORTANT: set KEYCLOAK_CLIENT_SECRET in environment or .env for confidential clients
-            client-secret: ${KEYCLOAK_CLIENT_SECRET:}
-            authorization-grant-type: authorization_code
-            # Spring OAuth2 default callback: /login/oauth2/code/{registrationId}
-            # Set this URL in Keycloak Valid Redirect URIs: http://localhost:8080/login/oauth2/code/keycloak
-            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
-            scope:
-              - openid
-              - profile
-              - email
-        provider:
-          keycloak:
-            issuer-uri: ${KEYCLOAK_AUTH_SERVER_URL:https://seudominio.com.br}/realms/${KEYCLOAK_REALM:testes}
-            user-name-attribute: preferred_username
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:https://seudominio.com.br/realms/testes}
+    
+    
       
-  # Spring LDAP auto-configuration properties (mapped from environment variables)
-  ldap:
-    urls: ${LDAP_URL:}
-    base: ${LDAP_BASE_DN:}
-    username: ${LDAP_MANAGER_DN:}
-    password: ${LDAP_MANAGER_PASSWORD:}
-
-# LDAP configuration (used by LdapAuthenticationFilter and potential LDAP services)
-ldap:
-  # URL do servidor LDAP/AD. Ex: ldap://ad.example.org:389 ou ldaps://ad.example.org:636
-  url: ${LDAP_URL:}
-  # Base DN para buscas (opcional). Ex: dc=example,dc=org
-  baseDn: ${LDAP_BASE_DN:}
-  # Padrão para montar o DN do usuário para bind direto. {0} será substituído pelo sAMAccountName
-  # Ex: uid={0},ou=people  ou CN={0},CN=Users
-  userDnPattern: ${LDAP_USER_DN_PATTERN:}
-  # Conta de serviço (opcional) para buscas no LDAP. Caso seja informada, pode ser usada para procurar atributos
-  managerDn: ${LDAP_MANAGER_DN:}
-  managerPassword: ${LDAP_MANAGER_PASSWORD:}
-  # Filtro de busca para localizar o usuário quando não se usa userDnPattern.
-  # Exemplo AD: (sAMAccountName={0})
-  searchFilter: ${LDAP_SEARCH_FILTER:(sAMAccountName={0})}
-  # Authentication containers (e.g. CN=Users) that will be prepended to baseDn for searches
-  authenticationContainers: ${LDAP_AUTH_CONTAINERS:CN=Users}
-  # Search scope: SUBTREE, ONELEVEL or OBJECT
-  searchScope: ${LDAP_SEARCH_SCOPE:ONELEVEL}
-  # Timeout for LDAP operations (seconds)
-  timeoutSeconds: ${LDAP_TIMEOUT_SECONDS:25}
-  # Grupos permitidos para autenticação (DNs completos separados por ponto e vírgula)
-  allowedGroups: ${LDAP_ALLOWED_GROUPS:}
-  # Grupo de administradores (DN completo)
-  adminGroup: ${LDAP_ADMIN_GROUP:}
   
-
-jwt:
-  secret-key: ${JWT_SECRET:defaultSecretKey} # Chave secreta para assinar os tokens JWT
-  expiration-time: ${JWT_EXPIRATION:3600000} # Tempo de expiração em segundos
-
-keycloak:
-  server-url: ${KEYCLOAK_AUTH_SERVER_URL:https://seudominio.com.br}
-  realm: ${KEYCLOAK_REALM:testes}
-  client-id: ${KEYCLOAK_CLIENT_ID:teste-cli}
-  client-secret: ${KEYCLOAK_CLIENT_SECRET:} # IMPORTANT: Must be set in environment or .env
-  # Default redirect_uri for token exchange. Must match what's registered in Keycloak client.
-  # Spring Security default: http://localhost:8080/login/oauth2/code/keycloak
-  redirect-uri: ${KEYCLOAK_REDIRECT_URI:http://localhost:8080/login/oauth2/code/keycloak}
 
 app:
   timezone: ${APP_TIMEZONE:America/Recife} # Timezone da aplicação, usado para datas e horários
   react-app-url: ${REACT_APP_URL:http://localhost:3000} # URL do app React que receberá a autenticação
+  allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
 
