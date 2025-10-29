@@ -21,7 +21,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class KeycloakUser implements UserDetails {
 
-    private UUID id;
+    private String id;
     private String username;
     private String email;
     private String firstName;

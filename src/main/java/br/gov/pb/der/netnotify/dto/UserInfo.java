@@ -15,7 +15,7 @@ public class UserInfo implements Serializable {
     private String fullName;
     private String username;
     private String email;
-    private Set<ApplicationRole> applicationRoles;
+    private Set<ApplicationRole> roles;
 
     public UserInfo() {
     }
@@ -24,7 +24,7 @@ public class UserInfo implements Serializable {
         this.fullName = userDetails.getFullName();
         this.username = userDetails.getUsername();
         this.email = userDetails.getEmail();
-        this.applicationRoles = userDetails.getApplicationRoles();
+        this.roles = userDetails.getApplicationRoles();
     }
 
     // Getters and Setters
