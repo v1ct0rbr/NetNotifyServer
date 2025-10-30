@@ -27,5 +27,13 @@ public class UserInfo implements Serializable {
         this.roles = userDetails.getApplicationRoles();
     }
 
+    public UserInfo(br.gov.pb.der.netnotify.security.KeycloakUser keycloakUser) {
+        this.fullName = keycloakUser.getFullName();
+        this.username = keycloakUser.getUsername();
+        this.email = keycloakUser.getEmail();
+        // Roles can be set if needed
+        this.roles = keycloakUser.getRoles();
+    }
+
     // Getters and Setters
 }

@@ -2,7 +2,6 @@ package br.gov.pb.der.netnotify.model;
 
 import java.time.LocalDateTime;
 import java.util.Set;
-import java.util.UUID;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -44,7 +43,7 @@ public class User {
      */
     @Id
     @Column(name = "id", updatable = false, nullable = false)
-    private UUID id; // ID vem diretamente do Keycloak, não é gerado automaticamente
+    private String id; // ID vem diretamente do Keycloak, não é gerado automaticamente
 
     /**
      * Nome de usuário (sincronizado com Keycloak)
@@ -159,7 +158,8 @@ public class User {
         ALERT_MANAGER, // Pode gerenciar alertas
         REPORT_VIEWER, // Pode visualizar relatórios
         SYSTEM_ADMIN, // Administração completa do sistema
-        MONITORING_VIEWER // Apenas visualização de monitoramento
+        MONITORING_VIEWER, // Apenas visualização de monitoramento
+        ROLE_USER
     }
 
     /**

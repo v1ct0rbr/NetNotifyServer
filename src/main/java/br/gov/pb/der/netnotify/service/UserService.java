@@ -4,7 +4,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
@@ -163,7 +162,7 @@ public class UserService {
      * Busca usuário por ID do Keycloak
      */
     @Transactional(readOnly = true)
-    public Optional<User> findById(UUID keycloakId) {
+    public Optional<User> findById(String keycloakId) {
         return userRepository.findById(keycloakId);
     }
 
@@ -186,7 +185,7 @@ public class UserService {
     /**
      * Atualiza preferências do usuário
      */
-    public User updateUserPreferences(UUID keycloakId, String preferences,
+    public User updateUserPreferences(String keycloakId, String preferences,
             User.Theme theme, String language, String timezone) {
         User user = userRepository.findById(keycloakId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
@@ -202,7 +201,7 @@ public class UserService {
     /**
      * Desativa usuário
      */
-    public void deactivateUser(UUID keycloakId) {
+    public void deactivateUser(String keycloakId) {
         User user = userRepository.findById(keycloakId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
 
@@ -215,7 +214,7 @@ public class UserService {
     /**
      * Reativa usuário
      */
-    public void activateUser(UUID keycloakId) {
+    public void activateUser(String keycloakId) {
         User user = userRepository.findById(keycloakId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
 

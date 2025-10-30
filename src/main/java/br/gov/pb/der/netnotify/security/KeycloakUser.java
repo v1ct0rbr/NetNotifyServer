@@ -2,11 +2,12 @@ package br.gov.pb.der.netnotify.security;
 
 import java.util.Collection;
 import java.util.Set;
-import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import br.gov.pb.der.netnotify.model.User;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -86,6 +87,17 @@ public class KeycloakUser implements UserDetails {
     public boolean hasRole(String role) {
         return authorities != null && authorities.stream()
                 .anyMatch(auth -> auth.getAuthority().equals("ROLE_" + role.toUpperCase()));
+    }
+
+    public Set<User.ApplicationRole> getRoles() {
+        if (authorities == null) {
+            return Set.of();
+        }
+        return authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .map(role -> role.replace("ROLE_", ""))
+                .map(User.ApplicationRole::valueOf)
+                .collect(Collectors.toSet());
     }
 
     /**

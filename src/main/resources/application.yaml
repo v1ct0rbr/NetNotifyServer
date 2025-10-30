@@ -43,12 +43,15 @@ spring:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:https://seudominio.com.br/realms/testes}
     
-    
-      
-  
-
 app:
   timezone: ${APP_TIMEZONE:America/Recife} # Timezone da aplicação, usado para datas e horários
   react-app-url: ${REACT_APP_URL:http://localhost:3000} # URL do app React que receberá a autenticação
   allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+  keycloak:
+    client-id: ${KEYCLOAK_CLIENT_ID:netnotify-client}
+    client-secret: ${KEYCLOAK_CLIENT_SECRET:secret}
+    token-url: ${KEYCLOAK_TOKEN_URL:https://seudominio.com.br/auth/realms/testes/protocol/openid-connect/token}        
+  jwt:
+    secret: ${JWT_SECRET:myjwtsecretkey}
+    expiration: ${JWT_EXPIRATION:3600000} # 1 hora
 

@@ -2,7 +2,6 @@ package br.gov.pb.der.netnotify.security;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -60,7 +59,7 @@ public class KeycloakUserService {
             Set<GrantedAuthority> authorities = new HashSet<>(oidcUser.getAuthorities());
 
             return KeycloakUser.builder()
-                    .id(UUID.fromString(id))
+                    .id(id)
                     .username(username)
                     .email(email)
                     .firstName(firstName)

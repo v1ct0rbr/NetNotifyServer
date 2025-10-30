@@ -6,8 +6,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 
-
-
 /**
  * DTO para a resposta do token endpoint do Keycloak
  */
@@ -15,10 +13,10 @@ import lombok.Data;
 @AllArgsConstructor
 @Builder
 public class KeycloakTokenResponse {
-    
+
     @JsonProperty("access_token")
     private String accessToken;
-    
+
     @JsonProperty("refresh_token")
     private String refreshToken;
 

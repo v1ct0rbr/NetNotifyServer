@@ -17,7 +17,6 @@ import org.springframework.web.client.RestTemplate;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
-import com.derpb.netnotify.dto.response.KeycloakTokenResponse;
 
 import br.gov.pb.der.netnotify.dto.KeycloakTokenResponse;
 import br.gov.pb.der.netnotify.dto.UserInfo;
@@ -78,7 +77,7 @@ public class AuthService {
             log.info("✅ Token do Keycloak obtido");
 
             // Step 2: Extrai informações do usuário do token do Keycloak
-            UserInfo user = this.extractUserFromToken(keycloakAccessToken);
+            KeycloakUser user = this.extractUserFromToken(keycloakAccessToken);
 
             // Step 3: Cria JWT customizado
             String jwtToken = this.createJwtToken(user);
@@ -91,7 +90,7 @@ public class AuthService {
                     .refreshToken(refreshToken)
                     .expiresIn((long) expiresIn)
                     .tokenType("Bearer")
-                    .user(user)
+                    .user(new UserInfo(user))
                     .build();
 
             return response;
@@ -128,11 +127,11 @@ public class AuthService {
             String jwtToken = this.createJwtToken(user);
 
             KeycloakTokenResponse response = KeycloakTokenResponse.builder()
-                    .access_token(jwtToken)
-                    .refresh_token(newRefreshToken)
-                    .expires_in((long) expiresIn)
-                    .token_type("Bearer")
-                    .user(user)
+                    .accessToken(jwtToken)
+                    .refreshToken(newRefreshToken)
+                    .expiresIn((long) expiresIn)
+                    .tokenType("Bearer")
+                    .user(new UserInfo(user))
                     .build();
 
             return response;
