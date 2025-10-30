@@ -50,7 +50,11 @@ app:
   keycloak:
     client-id: ${KEYCLOAK_CLIENT_ID:netnotify-client}
     client-secret: ${KEYCLOAK_CLIENT_SECRET:secret}
-    token-url: ${KEYCLOAK_TOKEN_URL:https://seudominio.com.br/auth/realms/testes/protocol/openid-connect/token}        
+    # Token URL - IMPORTANT: Modern Keycloak (v20+) uses /realms path (NOT /auth/realms)
+    token-url: ${KEYCLOAK_TOKEN_URL:https://keycloak.derpb.com.br/realms/testes/protocol/openid-connect/token}
+    # Redirect URI que deve corresponder EXATAMENTE ao registrado no Keycloak Admin Console
+    # Valid Redirect URIs: http://localhost:5173/callback ou outro conforme configurado no Keycloak
+    redirect-uri: ${KEYCLOAK_REDIRECT_URI:http://localhost:5173/callback}        
   jwt:
     secret: ${JWT_SECRET:myjwtsecretkey}
     expiration: ${JWT_EXPIRATION:3600000} # 1 hora

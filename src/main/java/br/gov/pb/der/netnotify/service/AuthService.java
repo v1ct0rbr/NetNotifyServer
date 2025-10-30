@@ -45,6 +45,9 @@ public class AuthService {
     @Value("${app.keycloak.token-url}")
     private String tokenUrl;
 
+    @Value("${app.keycloak.redirect-uri}")
+    private String configuredRedirectUri;
+
     @Value("${app.jwt.secret:seu-secret-jwt-super-seguro-aqui}")
     private String jwtSecret;
 
@@ -57,14 +60,16 @@ public class AuthService {
      * Troca código de autorização por token
      * 
      * @param code - Código retornado pelo Keycloak
+     * @param clientRedirectUri - redirect_uri recebido do frontend (deve ser igual ao usado na autorização)
      * @return KeycloakTokenResponse com token e dados do usuário
      */
-    public KeycloakTokenResponse exchangeCodeForToken(String code) throws Exception {
+    public KeycloakTokenResponse exchangeCodeForToken(String code, String clientRedirectUri) throws Exception {
         log.info("🔄 Trocando código por token do Keycloak...");
 
         try {
             // Step 1: Faz requisição ao Keycloak para trocar código por token
-            Map<String, Object> keycloakToken = this.getKeycloakToken(code);
+            String effectiveRedirect = selectEffectiveRedirectUri(clientRedirectUri);
+            Map<String, Object> keycloakToken = this.getKeycloakToken(code, effectiveRedirect);
 
             if (keycloakToken == null) {
                 throw new Exception("Falha ao obter token do Keycloak");
@@ -144,20 +149,31 @@ public class AuthService {
     /**
      * Faz requisição ao Keycloak para trocar código por token
      */
-    private Map<String, Object> getKeycloakToken(String code) throws Exception {
+    private Map<String, Object> getKeycloakToken(String code, String effectiveRedirectUri) throws Exception {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
+        
+        // Encode redirect_uri explicitamente
+        
+        
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("grant_type", "authorization_code");
         body.add("client_id", clientId);
         body.add("client_secret", clientSecret);
         body.add("code", code);
-        body.add("redirect_uri", "http://localhost:5173/callback");
+        body.add("redirect_uri", effectiveRedirectUri); // Spring já faz encoding automaticamente no form-urlencoded
 
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);
 
         try {
+            log.info("🔄 Trocando authorization code por token:");
+            log.info("  🔗 Token URL: {}", tokenUrl);
+            log.info("  📍 Redirect URI (original): {}", effectiveRedirectUri);
+            
+            log.info("  🔑 Client ID: {}", clientId);
+            log.debug("  📦 Request Body: grant_type=authorization_code, client_id={}, code=***, redirect_uri={}", clientId, effectiveRedirectUri);
+
+            @SuppressWarnings("unchecked")
             Map<String, Object> response = restTemplate.postForObject(tokenUrl, request, Map.class);
 
             if (response == null) {
@@ -165,12 +181,30 @@ public class AuthService {
                 return null;
             }
 
-            log.info("✅ Resposta recebida do Keycloak");
+            log.info("✅ Token obtido com sucesso do Keycloak");
             return response;
         } catch (Exception e) {
-            log.error("❌ Erro ao chamar Keycloak:", e);
+            log.error("❌ ERRO ao chamar Keycloak!");
+            log.error("  URL tentada: {}", tokenUrl);
+            log.error("  Redirect URI enviado (original): {}", effectiveRedirectUri);
+            
+            log.error("  Mensagem erro: {}", e.getMessage());
             throw e;
         }
+    }
+
+    /**
+     * Seleciona o redirect_uri efetivo: prioriza o enviado pelo cliente, se válido.
+     * Se vazio ou inválido, cai para o configurado no servidor.
+     */
+    private String selectEffectiveRedirectUri(String clientRedirectUri) {
+        // Se o cliente enviou um redirectUri, use-o. Ele precisa ser exatamente o mesmo usado na autorização.
+        if (clientRedirectUri != null && !clientRedirectUri.isBlank()) {
+            log.info("📥 redirectUri recebido do cliente será utilizado: {}", clientRedirectUri);
+            return clientRedirectUri.trim();
+        }
+        log.info("ℹ️ redirectUri do cliente ausente; usando o configurado no servidor: {}", configuredRedirectUri);
+        return configuredRedirectUri;
     }
 
     /**

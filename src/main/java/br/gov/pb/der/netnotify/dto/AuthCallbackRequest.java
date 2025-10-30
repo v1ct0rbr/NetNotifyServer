@@ -9,5 +9,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class AuthCallbackRequest {
     private String code;
+    // The exact redirect_uri used in the authorization request (must match for token exchange)
+    private String redirectUri;
 
 }
