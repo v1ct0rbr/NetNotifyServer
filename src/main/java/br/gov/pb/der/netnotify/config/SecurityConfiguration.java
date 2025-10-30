@@ -39,6 +39,7 @@ public class SecurityConfiguration {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers("/messages/**").hasAuthority("ROLE_USERS")
+                .requestMatchers("/api/auth/**").permitAll()
                 .anyRequest().authenticated()
         )
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
@@ -79,7 +80,11 @@ public class SecurityConfiguration {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration corsConfiguration = new CorsConfiguration();
-        corsConfiguration.setAllowedOrigins(List.of(allowedOrigins.split(",")));
+        List<String> allowedOriginsList = List.of(allowedOrigins.split(","));
+        for (String origin : allowedOriginsList) {
+            System.out.println("Allowed Origin: " + origin);
+        }
+        corsConfiguration.setAllowedOrigins(allowedOriginsList);
         corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         corsConfiguration.setAllowCredentials(true);
         corsConfiguration.setAllowedHeaders(List.of("*"));

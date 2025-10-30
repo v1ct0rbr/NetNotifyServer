@@ -7,7 +7,7 @@ CREATE SCHEMA IF NOT EXISTS auth;
 
 -- USERS
 CREATE TABLE IF NOT EXISTS auth.users (
-    id UUID PRIMARY KEY,
+    id VARCHAR(50) PRIMARY KEY,
     username VARCHAR(100) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL,
     full_name VARCHAR(255) NOT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS message (
     id UUID PRIMARY KEY,
     title VARCHAR(100),
     content TEXT,
-    user_id UUID,
+    user_id VARCHAR(50),
     level_id INTEGER,
     type_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

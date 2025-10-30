@@ -15,6 +15,8 @@ import br.gov.pb.der.netnotify.dto.RefreshTokenRequest;
 import br.gov.pb.der.netnotify.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.RequestParam;
+
 
 /**
  * Controlador de autenticação
@@ -55,6 +57,12 @@ public class AuthController {
      * }
      * }
      */
+
+    @GetMapping("/teste")
+    public ResponseEntity<String> getMethodName() {
+        return ResponseEntity.ok("teste");
+    }
+    
 
     @PostMapping("/callback")
     public ResponseEntity<KeycloakTokenResponse> callback(
