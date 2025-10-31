@@ -63,13 +63,13 @@ public class AuthService {
      * @param clientRedirectUri - redirect_uri recebido do frontend (deve ser igual ao usado na autorização)
      * @return KeycloakTokenResponse com token e dados do usuário
      */
-    public KeycloakTokenResponse exchangeCodeForToken(String code, String clientRedirectUri) throws Exception {
+    public KeycloakTokenResponse exchangeCodeForToken(String code, String clientRedirectUri, String codeVerifier) throws Exception {
         log.info("🔄 Trocando código por token do Keycloak...");
 
         try {
             // Step 1: Faz requisição ao Keycloak para trocar código por token
             String effectiveRedirect = selectEffectiveRedirectUri(clientRedirectUri);
-            Map<String, Object> keycloakToken = this.getKeycloakToken(code, effectiveRedirect);
+            Map<String, Object> keycloakToken = this.getKeycloakToken(code, effectiveRedirect, codeVerifier);
 
             if (keycloakToken == null) {
                 throw new Exception("Falha ao obter token do Keycloak");
@@ -149,7 +149,7 @@ public class AuthService {
     /**
      * Faz requisição ao Keycloak para trocar código por token
      */
-    private Map<String, Object> getKeycloakToken(String code, String effectiveRedirectUri) throws Exception {
+    private Map<String, Object> getKeycloakToken(String code, String effectiveRedirectUri, String codeVerifier) throws Exception {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         
@@ -162,6 +162,9 @@ public class AuthService {
         body.add("client_secret", clientSecret);
         body.add("code", code);
         body.add("redirect_uri", effectiveRedirectUri); // Spring já faz encoding automaticamente no form-urlencoded
+        if (codeVerifier != null && !codeVerifier.isBlank()) {
+            body.add("code_verifier", codeVerifier.trim());
+        }
 
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);
 
@@ -171,7 +174,13 @@ public class AuthService {
             log.info("  📍 Redirect URI (original): {}", effectiveRedirectUri);
             
             log.info("  🔑 Client ID: {}", clientId);
-            log.debug("  📦 Request Body: grant_type=authorization_code, client_id={}, code=***, redirect_uri={}", clientId, effectiveRedirectUri);
+            if (codeVerifier != null && !codeVerifier.isBlank()) {
+                log.info("  🔐 PKCE code_verifier: presente (tamanho={})", codeVerifier.length());
+            } else {
+                log.info("  🔐 PKCE code_verifier: ausente");
+            }
+            log.debug("  📦 Request Body: grant_type=authorization_code, client_id={}, code=***, redirect_uri={}, code_verifier={}"
+                , clientId, effectiveRedirectUri, (codeVerifier != null && !codeVerifier.isBlank()) ? "***" : "<none>");
 
             @SuppressWarnings("unchecked")
             Map<String, Object> response = restTemplate.postForObject(tokenUrl, request, Map.class);
@@ -215,7 +224,7 @@ public class AuthService {
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-        body.add("grant_type", "refresh_token");
+        body.add("grant_type", "aut");
         body.add("client_id", clientId);
         body.add("client_secret", clientSecret);
         body.add("refresh_token", refreshToken);

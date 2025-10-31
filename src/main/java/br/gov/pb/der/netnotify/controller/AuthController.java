@@ -7,9 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.gov.pb.der.netnotify.dto.AuthCallbackRequest;
@@ -19,14 +17,12 @@ import br.gov.pb.der.netnotify.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-
 /**
  * Controlador de autenticação
- * 
- * Responsável por:
- * 1. Receber código de autorização do Keycloak (do frontend)
- * 2. Trocar código por token JWT
- * 3. Retornar token e dados do usuário para o frontend
+ *
+ * Responsável por: 1. Receber código de autorização do Keycloak (do frontend)
+ * 2. Trocar código por token JWT 3. Retornar token e dados do usuário para o
+ * frontend
  */
 @RestController
 @RequestMapping("/auth")
@@ -38,44 +34,39 @@ public class AuthController {
 
     /**
      * Endpoint para troca de código por token
-     * 
+     *
      * POST /api/auth/callback
-     * 
-     * Request:
-     * {
-     * "code": "xxxxx"
-     * }
-     * 
-     * Response:
-     * {
-     * "access_token": "jwt-token",
-     * "refresh_token": "refresh-token",
-     * "expires_in": 3600,
-     * "user": {
-     * "id": "user-id",
-     * "email": "user@example.com",
-     * "name": "User Name"
-     * }
-     * }
+     *
+     * Request: { "code": "xxxxx" }
+     *
+     * Response: { "access_token": "jwt-token", "refresh_token":
+     * "refresh-token", "expires_in": 3600, "user": { "id": "user-id", "email":
+     * "user@example.com", "name": "User Name" } }
      */
-
     @GetMapping("/teste")
     public ResponseEntity<String> getMethodName() {
         return ResponseEntity.ok("teste");
     }
-    
 
-    @PostMapping("/callback")
+    @PostMapping(value = "/callback", consumes = "application/json", produces = "application/json")
     public ResponseEntity<KeycloakTokenResponse> callback(
-        @RequestBody AuthCallbackRequest request,
-        @RequestParam(name = "redirect_uri", required = false) String redirectUriParam,
-        @RequestHeader(name = "X-Redirect-Uri", required = false) String redirectUriHeader) {
+            @RequestBody AuthCallbackRequest request
+            ) {
         try {
+            String redirectUriParam = request.getRedirect_uri();
+            
+          
             log.info("🔄 Recebido callback com código: {}",
                     request.getCode() != null ? request.getCode().substring(0, 20) + "..." : "null");
-        log.info("📍 redirectUri recebido do cliente (body): {}", request.getRedirectUri());
-        log.info("📍 redirectUri recebido como query param: {}", redirectUriParam);
-        log.info("📍 redirectUri recebido no header X-Redirect-Uri: {}", redirectUriHeader);
+
+            log.info("📍 redirectUri recebido do cliente (body): {}", request.getRedirect_uri());
+            log.info("📍 redirectUri recebido como query param: {}", redirectUriParam);
+
+            if (request.getCode_verifier() != null && !request.getCode_verifier().isBlank()) {
+                log.info("🔐 PKCE code_verifier recebido do cliente (tamanho={}): OK", request.getCode_verifier().length());
+            } else {
+                log.info("🔐 PKCE code_verifier não enviado pelo cliente (prossegue sem PKCE)");
+            }
 
             if (request.getCode() == null || request.getCode().isEmpty()) {
                 log.error("❌ Código não fornecido");
@@ -83,10 +74,10 @@ public class AuthController {
             }
 
             // Fallback chain para obter o redirectUri efetivo enviado pelo frontend
-            String clientRedirect = firstNonBlank(request.getRedirectUri(), redirectUriParam, redirectUriHeader);
+            
 
-            // Troca código por token
-            KeycloakTokenResponse response = authService.exchangeCodeForToken(request.getCode(), clientRedirect);
+            // Troca código por token (inclui code_verifier quando enviado)
+            KeycloakTokenResponse response = authService.exchangeCodeForToken(request.getCode(), redirectUriParam, request.getCode_verifier());
 
             log.info("✅ Callback processado com sucesso para usuário: {}",
                     response.getUser() != null ? response.getUser().getEmail() : "unknown");
@@ -99,30 +90,26 @@ public class AuthController {
     }
 
     private String firstNonBlank(String... values) {
-        if (values == null) return null;
+        if (values == null) {
+            return null;
+        }
         for (String v : values) {
-            if (v != null && !v.isBlank()) return v.trim();
+            if (v != null && !v.isBlank()) {
+                return v.trim();
+            }
         }
         return null;
     }
 
     /**
      * Endpoint para renovar token
-     * 
+     *
      * POST /api/auth/refresh
-     * 
-     * Request:
-     * {
-     * "refresh_token": "xxxxx"
-     * }
-     * 
-     * Response:
-     * {
-     * "access_token": "new-jwt-token",
-     * "refresh_token": "new-refresh-token",
-     * "expires_in": 3600,
-     * "user": { ... }
-     * }
+     *
+     * Request: { "refresh_token": "xxxxx" }
+     *
+     * Response: { "access_token": "new-jwt-token", "refresh_token":
+     * "new-refresh-token", "expires_in": 3600, "user": { ... } }
      */
     @PostMapping("/refresh")
     public ResponseEntity<KeycloakTokenResponse> refreshToken(@RequestBody RefreshTokenRequest request) {
@@ -158,13 +145,14 @@ public class AuthController {
     @lombok.Data
     @lombok.AllArgsConstructor
     public static class HealthResponse {
+
         private String status;
         private String message;
     }
 
     /**
-     * Endpoint para diagnóstico da configuração Keycloak
-     * Útil para debugar problemas de redirect_uri
+     * Endpoint para diagnóstico da configuração Keycloak Útil para debugar
+     * problemas de redirect_uri
      */
     @GetMapping("/config-debug")
     public ResponseEntity<Map<String, String>> configDebug() {
