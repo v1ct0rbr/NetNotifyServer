@@ -3,7 +3,6 @@ package br.gov.pb.der.netnotify.service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
@@ -92,9 +91,8 @@ public class UserService {
                 .build();
 
         // Mapear roles do Keycloak para roles da aplicação
-        Set<User.ApplicationRole> appRoles = mapKeycloakRolesToApplicationRoles(keycloakUser);
-        user.setApplicationRoles(appRoles);
 
+        user.setRoles(keycloakUser.getRoles());
         return userRepository.save(user);
     }
 
@@ -115,47 +113,12 @@ public class UserService {
             changed = true;
         }
 
+        user.setRoles(keycloakUser.getRoles());
         // Atualizar roles se necessário
-        Set<User.ApplicationRole> newRoles = mapKeycloakRolesToApplicationRoles(keycloakUser);
-        if (!newRoles.equals(user.getApplicationRoles())) {
-            user.setApplicationRoles(newRoles);
-            changed = true;
-        }
 
         if (changed) {
             log.debug("Sincronizando dados do usuário: {}", user.getUsername());
         }
-    }
-
-    /**
-     * Mapeia roles do Keycloak para roles da aplicação
-     */
-    private Set<User.ApplicationRole> mapKeycloakRolesToApplicationRoles(KeycloakUser keycloakUser) {
-        Set<User.ApplicationRole> appRoles = Set.of();
-
-        if (keycloakUser.hasRole("ADMIN")) {
-            appRoles = Set.of(
-                    User.ApplicationRole.SYSTEM_ADMIN,
-                    User.ApplicationRole.SERVER_MANAGER,
-                    User.ApplicationRole.ALERT_MANAGER,
-                    User.ApplicationRole.REPORT_VIEWER,
-                    User.ApplicationRole.MONITORING_VIEWER);
-        } else if (keycloakUser.hasRole("USER")) {
-            appRoles = Set.of(
-                    User.ApplicationRole.MONITORING_VIEWER,
-                    User.ApplicationRole.REPORT_VIEWER);
-        }
-
-        // Roles específicas adicionais
-        if (keycloakUser.hasRole("SERVER_MANAGER")) {
-            appRoles = Set.of(User.ApplicationRole.SERVER_MANAGER);
-        }
-
-        if (keycloakUser.hasRole("ALERT_MANAGER")) {
-            appRoles = Set.of(User.ApplicationRole.ALERT_MANAGER);
-        }
-
-        return appRoles;
     }
 
     /**

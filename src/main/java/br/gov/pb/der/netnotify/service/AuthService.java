@@ -3,13 +3,17 @@ package br.gov.pb.der.netnotify.service;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -59,11 +63,13 @@ public class AuthService {
     /**
      * Troca código de autorização por token
      * 
-     * @param code - Código retornado pelo Keycloak
-     * @param clientRedirectUri - redirect_uri recebido do frontend (deve ser igual ao usado na autorização)
+     * @param code              - Código retornado pelo Keycloak
+     * @param clientRedirectUri - redirect_uri recebido do frontend (deve ser igual
+     *                          ao usado na autorização)
      * @return KeycloakTokenResponse com token e dados do usuário
      */
-    public KeycloakTokenResponse exchangeCodeForToken(String code, String clientRedirectUri, String codeVerifier) throws Exception {
+    public KeycloakTokenResponse exchangeCodeForToken(String code, String clientRedirectUri, String codeVerifier)
+            throws Exception {
         log.info("🔄 Trocando código por token do Keycloak...");
 
         try {
@@ -149,13 +155,13 @@ public class AuthService {
     /**
      * Faz requisição ao Keycloak para trocar código por token
      */
-    private Map<String, Object> getKeycloakToken(String code, String effectiveRedirectUri, String codeVerifier) throws Exception {
+    private Map<String, Object> getKeycloakToken(String code, String effectiveRedirectUri, String codeVerifier)
+            throws Exception {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-        
+
         // Encode redirect_uri explicitamente
-        
-        
+
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("grant_type", "authorization_code");
         body.add("client_id", clientId);
@@ -172,15 +178,17 @@ public class AuthService {
             log.info("🔄 Trocando authorization code por token:");
             log.info("  🔗 Token URL: {}", tokenUrl);
             log.info("  📍 Redirect URI (original): {}", effectiveRedirectUri);
-            
+
             log.info("  🔑 Client ID: {}", clientId);
             if (codeVerifier != null && !codeVerifier.isBlank()) {
                 log.info("  🔐 PKCE code_verifier: presente (tamanho={})", codeVerifier.length());
             } else {
                 log.info("  🔐 PKCE code_verifier: ausente");
             }
-            log.debug("  📦 Request Body: grant_type=authorization_code, client_id={}, code=***, redirect_uri={}, code_verifier={}"
-                , clientId, effectiveRedirectUri, (codeVerifier != null && !codeVerifier.isBlank()) ? "***" : "<none>");
+            log.debug(
+                    "  📦 Request Body: grant_type=authorization_code, client_id={}, code=***, redirect_uri={}, code_verifier={}",
+                    clientId, effectiveRedirectUri,
+                    (codeVerifier != null && !codeVerifier.isBlank()) ? "***" : "<none>");
 
             @SuppressWarnings("unchecked")
             Map<String, Object> response = restTemplate.postForObject(tokenUrl, request, Map.class);
@@ -189,6 +197,10 @@ public class AuthService {
                 log.error("❌ Resposta nula do Keycloak");
                 return null;
             }
+            for (String key : response.keySet()) {
+                // mostrar todos os valores retornados
+                log.info("Received response {}: {}", key, response.get(key));
+            }
 
             log.info("✅ Token obtido com sucesso do Keycloak");
             return response;
@@ -196,7 +208,7 @@ public class AuthService {
             log.error("❌ ERRO ao chamar Keycloak!");
             log.error("  URL tentada: {}", tokenUrl);
             log.error("  Redirect URI enviado (original): {}", effectiveRedirectUri);
-            
+
             log.error("  Mensagem erro: {}", e.getMessage());
             throw e;
         }
@@ -207,7 +219,8 @@ public class AuthService {
      * Se vazio ou inválido, cai para o configurado no servidor.
      */
     private String selectEffectiveRedirectUri(String clientRedirectUri) {
-        // Se o cliente enviou um redirectUri, use-o. Ele precisa ser exatamente o mesmo usado na autorização.
+        // Se o cliente enviou um redirectUri, use-o. Ele precisa ser exatamente o mesmo
+        // usado na autorização.
         if (clientRedirectUri != null && !clientRedirectUri.isBlank()) {
             log.info("📥 redirectUri recebido do cliente será utilizado: {}", clientRedirectUri);
             return clientRedirectUri.trim();
@@ -256,13 +269,26 @@ public class AuthService {
         try {
             // Decodifica token (sem validação, pois já foi validado pelo Keycloak)
             var decodedJWT = JWT.decode(token);
-
             String email = decodedJWT.getClaim("email").asString();
             String name = decodedJWT.getClaim("name").asString();
             String givenName = decodedJWT.getClaim("given_name").asString();
             String familyName = decodedJWT.getClaim("family_name").asString();
             String sub = decodedJWT.getClaim("sub").asString();
-
+            Map<String, Object> realmAccess = decodedJWT.getClaim("realm_access").asMap();
+            List<String> roles;
+            if (realmAccess != null && realmAccess.containsKey("roles")) {
+                Object rolesObj = realmAccess.get("roles");
+                if (rolesObj instanceof List) {
+                    roles = ((List<?>) rolesObj).stream()
+                            .filter(java.util.Objects::nonNull)
+                            .map(Object::toString)
+                            .collect(Collectors.toList());
+                } else {
+                    roles = Collections.emptyList();
+                }
+            } else {
+                roles = Collections.emptyList();
+            }
             KeycloakUser user = KeycloakUser.builder()
                     .id(sub)
                     .username(email)
@@ -271,9 +297,11 @@ public class AuthService {
                     .lastName(familyName)
                     .enabled(true)
                     .emailVerified(true)
+                    .authorities(roles.stream()
+                            .map(role -> "ROLE_" + role.toUpperCase())
+                            .map(roleName -> (GrantedAuthority) () -> roleName)
+                            .collect(Collectors.toSet()))
                     .build();
-
-            log.info("✅ Usuário extraído do token: {}", email);
 
             return user;
         } catch (Exception e) {

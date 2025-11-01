@@ -28,7 +28,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SecurityConfiguration {
 
-
     @Value("${keycloak.resource:your-client-id}")
     private String resource;
 
@@ -38,11 +37,12 @@ public class SecurityConfiguration {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers("/messages/**").hasAuthority("ROLE_USERS")
+                .requestMatchers("/messages/**").hasAnyRole("USER", "ADMIN")
+                .requestMatchers("/aux/**").hasAnyRole("USER", "ADMIN")
                 .requestMatchers("/auth/**").permitAll()
-                .anyRequest().authenticated()
-        )
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
+                .anyRequest().authenticated())
+                .oauth2ResourceServer(
+                        oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()));
         return http.build();
@@ -53,7 +53,8 @@ public class SecurityConfiguration {
     }
 
     @SuppressWarnings("unchecked")
-    private void extractRolesFromClaim(Jwt jwt, String claimName, Collection<GrantedAuthority> authorities, String resource) {
+    private void extractRolesFromClaim(Jwt jwt, String claimName, Collection<GrantedAuthority> authorities,
+            String resource) {
         Map<String, Object> claim = jwt.getClaim(claimName);
         if (claim != null && claim.containsKey("roles")) {
             List<String> roles = (List<String>) claim.get("roles");
@@ -65,7 +66,8 @@ public class SecurityConfiguration {
         if (resource != null) {
             Map<String, Object> resourceAccess = jwt.getClaim(claimName);
             if (resourceAccess != null && resourceAccess.containsKey(resource)) {
-                List<String> resourceRoles = (List<String>) ((Map<String, Object>) resourceAccess.get(resource)).get("roles");
+                List<String> resourceRoles = (List<String>) ((Map<String, Object>) resourceAccess.get(resource))
+                        .get("roles");
                 if (resourceRoles != null) {
                     for (String role : resourceRoles) {
                         authorities.add(new SimpleGrantedAuthority("ROLE_" + role));

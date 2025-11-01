@@ -4,7 +4,6 @@ import java.io.Serializable;
 import java.util.Set;
 
 import br.gov.pb.der.netnotify.model.User;
-import br.gov.pb.der.netnotify.model.User.ApplicationRole;
 import lombok.Data;
 
 @Data
@@ -15,7 +14,7 @@ public class UserInfo implements Serializable {
     private String fullName;
     private String username;
     private String email;
-    private Set<ApplicationRole> roles;
+    private Set<String> roles;
 
     public UserInfo() {
     }
@@ -24,7 +23,7 @@ public class UserInfo implements Serializable {
         this.fullName = userDetails.getFullName();
         this.username = userDetails.getUsername();
         this.email = userDetails.getEmail();
-        this.roles = userDetails.getApplicationRoles();
+        this.roles = userDetails.getRoles();
     }
 
     public UserInfo(br.gov.pb.der.netnotify.security.KeycloakUser keycloakUser) {

@@ -20,11 +20,7 @@ public class ProfileController {
     public UserInfo getProfile() {
         System.out.println("Fetching profile for logged-in user");
         User user = userService.getLoggedUser();
-        UserInfo userInfo = new UserInfo();
-        userInfo.setUsername(user.getUsername());
-        userInfo.setFullName(user.getFullName());
-        userInfo.setEmail(user.getEmail());
-        userInfo.setRoles(user.getApplicationRoles());
+        UserInfo userInfo = new UserInfo(user);
         return userInfo;
     }
 

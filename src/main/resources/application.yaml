@@ -41,7 +41,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:https://seudominio.com.br/realms/testes}
+          issuer-uri: ${KEYCLOAK_PROVIDER_ISSUER:https://seudominio.com.br/realms/testes}
     
 app:
   timezone: ${APP_TIMEZONE:America/Recife} # Timezone da aplicação, usado para datas e horários
@@ -51,7 +51,9 @@ app:
     client-id: ${KEYCLOAK_CLIENT_ID:netnotify-client}
     client-secret: ${KEYCLOAK_CLIENT_SECRET:secret}
     # Token URL - IMPORTANT: Modern Keycloak (v20+) uses /realms path (NOT /auth/realms)
-    token-url: ${KEYCLOAK_TOKEN_URL:https://keycloak.derpb.com.br/realms/testes/protocol/openid-connect/token}
+    # v17 e anteriores: https://keycloak.server/auth/realms/{realm}/protocol/openid-connect/token
+    # v20+: https://keycloak.server/realms/{realm}/protocol/openid-connect/token
+    token-url: ${KEYCLOAK_TOKEN_URL:https://seudominio.com.br/realms/testes/protocol/openid-connect/token}
     # Redirect URI que deve corresponder EXATAMENTE ao registrado no Keycloak Admin Console
     # Valid Redirect URIs: http://localhost:5173/callback ou outro conforme configurado no Keycloak
     redirect-uri: ${KEYCLOAK_REDIRECT_URI:http://localhost:5173/callback}        

@@ -28,11 +28,8 @@ public class UserDetailsImpl implements UserDetails {
          * SimpleGrantedAuthority, que é uma implementação simples de GrantedAuthority
          * 
          */
-        return user.getApplicationRoles().stream().map(role -> new SimpleGrantedAuthority(role.name()))
+        return user.getRoles().stream().map(role -> new SimpleGrantedAuthority(role))
                 .collect(Collectors.toList());
-
-              
-
 
     }
 

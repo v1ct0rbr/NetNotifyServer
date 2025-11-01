@@ -126,7 +126,7 @@ public class User {
      * @Enumerated(EnumType.STRING)
      */
     @Transient
-    private Set<ApplicationRole> applicationRoles;
+    private Set<String> roles;
 
     /**
      * Data de criação do registro
@@ -150,23 +150,10 @@ public class User {
     }
 
     /**
-     * Enum para roles específicas da aplicação
-     */
-    public enum ApplicationRole {
-        // Roles específicas do ServerWatch
-        SERVER_MANAGER, // Pode gerenciar servidores
-        ALERT_MANAGER, // Pode gerenciar alertas
-        REPORT_VIEWER, // Pode visualizar relatórios
-        SYSTEM_ADMIN, // Administração completa do sistema
-        MONITORING_VIEWER, // Apenas visualização de monitoramento
-        ROLE_USER
-    }
-
-    /**
      * Verifica se o usuário tem uma role específica da aplicação
      */
-    public boolean hasApplicationRole(ApplicationRole role) {
-        return applicationRoles != null && applicationRoles.contains(role);
+    public boolean hasRole(String role) {
+        return roles != null && roles.contains(role);
     }
 
     /**

@@ -7,7 +7,6 @@ import java.util.stream.Collectors;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import br.gov.pb.der.netnotify.model.User;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -89,14 +88,13 @@ public class KeycloakUser implements UserDetails {
                 .anyMatch(auth -> auth.getAuthority().equals("ROLE_" + role.toUpperCase()));
     }
 
-    public Set<User.ApplicationRole> getRoles() {
+    public Set<String> getRoles() {
         if (authorities == null) {
             return Set.of();
         }
         return authorities.stream()
                 .map(GrantedAuthority::getAuthority)
                 .map(role -> role.replace("ROLE_", ""))
-                .map(User.ApplicationRole::valueOf)
                 .collect(Collectors.toSet());
     }
 
@@ -114,5 +112,22 @@ public class KeycloakUser implements UserDetails {
             }
         }
         return false;
+    }
+
+    @Override
+    public String toString() {
+        return "KeycloakUser{" +
+                "id='" + id + '\'' +
+                ", username='" + username + '\'' +
+                ", email='" + email + '\'' +
+                ", firstName='" + firstName + '\'' +
+                ", lastName='" + lastName + '\'' +
+                ", enabled=" + enabled +
+                ", emailVerified=" + emailVerified +
+                ", authorities=" + authorities.stream()
+                        .map(GrantedAuthority::getAuthority)
+                        .collect(Collectors.joining(", "))
+                +
+                '}';
     }
 }
