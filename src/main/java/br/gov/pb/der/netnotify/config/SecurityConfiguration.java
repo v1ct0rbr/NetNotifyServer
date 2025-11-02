@@ -37,8 +37,8 @@ public class SecurityConfiguration {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers("/messages/**").hasAnyRole("USER", "ADMIN")
-                .requestMatchers("/aux/**").hasAnyRole("USER", "ADMIN")
+                .requestMatchers("/messages/**").hasAnyAuthority("USER", "ADMIN")
+                .requestMatchers("/aux/**").hasAnyAuthority("USER", "ADMIN")
                 .requestMatchers("/auth/**").permitAll()
                 .anyRequest().authenticated())
                 .oauth2ResourceServer(
@@ -83,10 +83,16 @@ public class SecurityConfiguration {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration corsConfiguration = new CorsConfiguration();
         List<String> allowedOriginsList = List.of(allowedOrigins.split(","));
+
+        // Remove wildcards e whitespace, mantendo apenas domínios e protocolos válidos
+        List<String> cleanedOrigins = new ArrayList<>();
         for (String origin : allowedOriginsList) {
-            System.out.println("Allowed Origin: " + origin);
+            String cleaned = origin.trim().replaceAll("/\\*$", ""); // Remove /* do final
+            cleanedOrigins.add(cleaned);
+            System.out.println("Allowed Origin: " + cleaned);
         }
-        corsConfiguration.setAllowedOrigins(allowedOriginsList);
+
+        corsConfiguration.setAllowedOrigins(cleanedOrigins);
         corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         corsConfiguration.setAllowCredentials(true);
         corsConfiguration.setAllowedHeaders(List.of("*"));

@@ -6,7 +6,7 @@ services:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
   netnotify-postgres:
-    image: postgres:latest
+    image: postgres:17
     container_name: netnotify-postgres
     volumes:
       - netnotify-postgres-data:/var/lib/postgresql/data

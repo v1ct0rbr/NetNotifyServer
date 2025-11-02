@@ -50,12 +50,10 @@ public class AuthController {
 
     @PostMapping(value = "/callback", consumes = "application/json", produces = "application/json")
     public ResponseEntity<KeycloakTokenResponse> callback(
-            @RequestBody AuthCallbackRequest request
-            ) {
+            @RequestBody AuthCallbackRequest request) {
         try {
             String redirectUriParam = request.getRedirect_uri();
-            
-          
+
             log.info("🔄 Recebido callback com código: {}",
                     request.getCode() != null ? request.getCode().substring(0, 20) + "..." : "null");
 
@@ -63,7 +61,8 @@ public class AuthController {
             log.info("📍 redirectUri recebido como query param: {}", redirectUriParam);
 
             if (request.getCode_verifier() != null && !request.getCode_verifier().isBlank()) {
-                log.info("🔐 PKCE code_verifier recebido do cliente (tamanho={}): OK", request.getCode_verifier().length());
+                log.info("🔐 PKCE code_verifier recebido do cliente (tamanho={}): OK",
+                        request.getCode_verifier().length());
             } else {
                 log.info("🔐 PKCE code_verifier não enviado pelo cliente (prossegue sem PKCE)");
             }
@@ -74,10 +73,10 @@ public class AuthController {
             }
 
             // Fallback chain para obter o redirectUri efetivo enviado pelo frontend
-            
 
             // Troca código por token (inclui code_verifier quando enviado)
-            KeycloakTokenResponse response = authService.exchangeCodeForToken(request.getCode(), redirectUriParam, request.getCode_verifier());
+            KeycloakTokenResponse response = authService.exchangeCodeForToken(request.getCode(), redirectUriParam,
+                    request.getCode_verifier());
 
             log.info("✅ Callback processado com sucesso para usuário: {}",
                     response.getUser() != null ? response.getUser().getEmail() : "unknown");
@@ -132,6 +131,49 @@ public class AuthController {
     }
 
     /**
+     * Endpoint para logout e revogação de token
+     *
+     * POST /auth/logout
+     *
+     * Request: { "refresh_token": "xxxxx" }
+     *
+     * Response: { "success": true, "message": "Logout realizado com sucesso" }
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, Object>> logout(@RequestBody RefreshTokenRequest request) {
+        try {
+            log.info("🚪 Processando logout...");
+
+            if (request.getRefreshToken() == null || request.getRefreshToken().isEmpty()) {
+                log.warn("⚠️ Refresh token não fornecido para logout");
+                Map<String, Object> response = new java.util.HashMap<>();
+                response.put("success", true);
+                response.put("message", "Logout realizado localmente");
+                return ResponseEntity.ok(response);
+            }
+
+            boolean success = authService.logout(request.getRefreshToken());
+
+            Map<String, Object> response = new java.util.HashMap<>();
+            response.put("success", success);
+            response.put("message", success ? "Logout realizado com sucesso"
+                    : "Logout local realizado, mas erro ao revogar token no Keycloak");
+
+            log.info("✅ Logout bem-sucedido");
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("❌ Erro ao fazer logout: {}", e.getMessage(), e);
+
+            Map<String, Object> errorResponse = new java.util.HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Erro ao fazer logout: " + e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
      * Endpoint de health check
      */
     @GetMapping("/health")
@@ -157,13 +199,15 @@ public class AuthController {
     @GetMapping("/config-debug")
     public ResponseEntity<Map<String, String>> configDebug() {
         Map<String, String> config = new java.util.HashMap<>();
-        config.put("NOTE", "This endpoint shows configuration for debugging purposes only. Do NOT expose in production!");
+        config.put("NOTE",
+                "This endpoint shows configuration for debugging purposes only. Do NOT expose in production!");
         config.put("KEYCLOAK_TOKEN_URL", System.getenv("KEYCLOAK_TOKEN_URL"));
         config.put("KEYCLOAK_CLIENT_ID", System.getenv("KEYCLOAK_CLIENT_ID"));
         config.put("KEYCLOAK_REDIRECT_URI", System.getenv("KEYCLOAK_REDIRECT_URI"));
         config.put("KEYCLOAK_AUTH_SERVER_URL", System.getenv("KEYCLOAK_AUTH_SERVER_URL"));
         config.put("KEYCLOAK_REALM", System.getenv("KEYCLOAK_REALM"));
-        config.put("MESSAGE", "Verify that KEYCLOAK_REDIRECT_URI matches exactly what's registered in Keycloak Admin Console > Clients > teste-cli > Valid Redirect URIs");
+        config.put("MESSAGE",
+                "Verify that KEYCLOAK_REDIRECT_URI matches exactly what's registered in Keycloak Admin Console > Clients > teste-cli > Valid Redirect URIs");
         return ResponseEntity.ok(config);
     }
 }

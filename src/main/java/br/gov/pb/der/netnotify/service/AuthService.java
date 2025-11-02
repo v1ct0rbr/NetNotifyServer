@@ -338,4 +338,71 @@ public class AuthService {
             throw e;
         }
     }
+
+    /**
+     * Revoga um token (refresh token) no Keycloak
+     * Invalida a sessão do usuário
+     * 
+     * @param refreshToken - Refresh token a ser revogado
+     * @return true se revogado com sucesso, false caso contrário
+     */
+    public boolean revokeToken(String refreshToken) throws Exception {
+        log.info("🔄 Revogando refresh token no Keycloak...");
+
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+            body.add("client_id", clientId);
+            body.add("client_secret", clientSecret);
+            body.add("token", refreshToken);
+            body.add("token_type_hint", "refresh_token");
+
+            HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);
+
+            // Constrói URL de revogação: substituir /token por /revoke
+            String revokeUrl = tokenUrl.replace("/token", "/revoke");
+
+            log.info("🔗 URL de revogação: {}", revokeUrl);
+
+            restTemplate.postForEntity(revokeUrl, request, Void.class);
+
+            log.info("✅ Token revogado com sucesso");
+            return true;
+
+        } catch (Exception e) {
+            log.error("❌ Erro ao revogar token no Keycloak: {}", e.getMessage(), e);
+            // Retorna false mas não lança exceção, pois falha não deve impedir logout local
+            return false;
+        }
+    }
+
+    /**
+     * Faz logout do usuário revogando todos os tokens associados
+     * Equivalente ao logout no Keycloak
+     * 
+     * @param refreshToken - Refresh token do usuário
+     * @return true se logout bem-sucedido
+     */
+    public boolean logout(String refreshToken) throws Exception {
+        log.info("🚪 Realizando logout...");
+
+        try {
+            // Tenta revogar o refresh token
+            boolean revoked = this.revokeToken(refreshToken);
+
+            if (revoked) {
+                log.info("✅ Logout realizado com sucesso");
+                return true;
+            } else {
+                log.warn("⚠️ Logout local bem-sucedido, mas token não foi revogado no Keycloak");
+                return true; // Retorna true pois logout local foi bem-sucedido
+            }
+
+        } catch (Exception e) {
+            log.error("❌ Erro ao fazer logout: {}", e.getMessage(), e);
+            throw e;
+        }
+    }
 }

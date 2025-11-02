@@ -153,7 +153,7 @@ public class User {
      * Verifica se o usuário tem uma role específica da aplicação
      */
     public boolean hasRole(String role) {
-        return roles != null && roles.contains(role);
+        return roles != null && roles.contains("ROLE_" + role);
     }
 
     /**
