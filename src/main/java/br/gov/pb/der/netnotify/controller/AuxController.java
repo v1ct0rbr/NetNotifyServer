@@ -21,13 +21,13 @@ public class AuxController {
     private final MessageTypeService messageTypeService;
     private final LevelService levelService;
 
-    @GetMapping("/message-types")
+    @GetMapping(value = "/message-types", produces = "application/json")
     public ResponseEntity<List<MessageType>> getAllMessageTypes() {
         List<MessageType> messageTypes = messageTypeService.findAll();
         return ResponseEntity.ok(messageTypes);
     }
 
-    @GetMapping("/levels")
+    @GetMapping(value = "/levels", produces = "application/json")
     public ResponseEntity<List<Level>> getAllLevels() {
         List<Level> levels = levelService.findAll();
         return ResponseEntity.ok(levels);

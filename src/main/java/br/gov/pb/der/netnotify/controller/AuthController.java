@@ -48,7 +48,7 @@ public class AuthController {
         return ResponseEntity.ok("teste");
     }
 
-    @PostMapping(value = "/callback", consumes = "application/json", produces = "application/json")
+    @PostMapping(value = "/callback", produces = "application/json")
     public ResponseEntity<KeycloakTokenResponse> callback(
             @RequestBody AuthCallbackRequest request) {
         try {
@@ -139,7 +139,7 @@ public class AuthController {
      *
      * Response: { "success": true, "message": "Logout realizado com sucesso" }
      */
-    @PostMapping("/logout")
+    @PostMapping(value = "/logout", consumes = "application/json", produces = "application/json")
     public ResponseEntity<Map<String, Object>> logout(@RequestBody RefreshTokenRequest request) {
         try {
             log.info("🚪 Processando logout...");

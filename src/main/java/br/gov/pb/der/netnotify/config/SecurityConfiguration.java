@@ -16,9 +16,6 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import lombok.RequiredArgsConstructor;
 
@@ -37,14 +34,15 @@ public class SecurityConfiguration {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers("/messages/**").hasAnyAuthority("USER", "ADMIN")
-                .requestMatchers("/aux/**").hasAnyAuthority("USER", "ADMIN")
-                .requestMatchers("/auth/**").permitAll()
+                .requestMatchers("/messages/**").hasAnyRole("USER")
+                .requestMatchers("/aux/**").authenticated()
+                .requestMatchers("/auth/**").authenticated()
+                .requestMatchers("/profile/**").authenticated()
                 .anyRequest().authenticated())
                 .oauth2ResourceServer(
                         oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
-                .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()));
+                .csrf(csrf -> csrf.disable());
+        // .cors(cors -> cors.configurationSource(corsConfigurationSource()));
         return http.build();
     }
 
@@ -79,28 +77,49 @@ public class SecurityConfiguration {
 
     // Configuração CORS (importante para evitar problemas 403 em requisições de
     // diferentes origens)
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration corsConfiguration = new CorsConfiguration();
-        List<String> allowedOriginsList = List.of(allowedOrigins.split(","));
+    // @Bean
+    // public CorsConfigurationSource corsConfigurationSource() {
+    // CorsConfiguration corsConfiguration = new CorsConfiguration();
 
-        // Remove wildcards e whitespace, mantendo apenas domínios e protocolos válidos
-        List<String> cleanedOrigins = new ArrayList<>();
-        for (String origin : allowedOriginsList) {
-            String cleaned = origin.trim().replaceAll("/\\*$", ""); // Remove /* do final
-            cleanedOrigins.add(cleaned);
-            System.out.println("Allowed Origin: " + cleaned);
-        }
+    // // Parse das origens permitidas do arquivo de configuração
+    // // Formato esperado:
+    // // "http://localhost:3000,https://app.example.com,http://localhost:5173/*"
+    // List<String> allowedOriginsList = List.of(allowedOrigins.split(","));
 
-        corsConfiguration.setAllowedOrigins(cleanedOrigins);
-        corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        corsConfiguration.setAllowCredentials(true);
-        corsConfiguration.setAllowedHeaders(List.of("*"));
-        corsConfiguration.setMaxAge(3600L);
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", corsConfiguration);
-        return source;
-    }
+    // // Processa cada origem: remove espaços em branco e wildcards no final
+    // List<String> processedOrigins = new ArrayList<>();
+    // for (String origin : allowedOriginsList) {
+    // String processed = origin.trim()
+    // .replaceAll("/\\*$", "") // Remove /* do final
+    // .replaceAll("\\*$", ""); // Remove * solto do final
+
+    // if (!processed.isEmpty()) {
+    // processedOrigins.add(processed);
+    // System.out.println("✅ CORS Allowed Origin: " + processed);
+    // }
+    // }
+
+    // // Se nenhuma origem válida foi configurada, permite localhost por padrão
+    // if (processedOrigins.isEmpty()) {
+    // processedOrigins.add("http://localhost:3000");
+    // System.out.println("⚠️ Nenhuma origem CORS configurada - usando
+    // localhost:3000 como padrão");
+    // }
+
+    // corsConfiguration.setAllowedOrigins(processedOrigins);
+    // corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE",
+    // "OPTIONS", "PATCH"));
+    // corsConfiguration.setAllowCredentials(true);
+    // corsConfiguration.setAllowedHeaders(List.of("*"));
+    // corsConfiguration.setExposedHeaders(List.of("Authorization",
+    // "Content-Type"));
+    // corsConfiguration.setMaxAge(3600L);
+
+    // UrlBasedCorsConfigurationSource source = new
+    // UrlBasedCorsConfigurationSource();
+    // source.registerCorsConfiguration("/**", corsConfiguration);
+    // return source;
+    // }
 
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
