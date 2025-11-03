@@ -14,11 +14,8 @@ spring:
     exchange-durable: ${RABBITMQ_EXCHANGE_DURABLE:true}
 
   profiles:
-    active:
-    - local
     include:
     - keycloak
-    
 
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:netnotify}
@@ -41,7 +38,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_PROVIDER_ISSUER:https://seudominio.com.br/realms/testes}
+          issuer-uri: ${KEYCLOAK_PROVIDER_ISSUER:https://keycloak.derpb.com.br/realms/testes}
     
 app:
   timezone: ${APP_TIMEZONE:America/Recife} # Timezone da aplicação, usado para datas e horários
@@ -60,4 +57,12 @@ app:
   jwt:
     secret: ${JWT_SECRET:myjwtsecretkey}
     expiration: ${JWT_EXPIRATION:3600000} # 1 hora
+
+# Debug logging para OAuth2/JWT
+logging:
+  level:
+    org.springframework.security: DEBUG
+    org.springframework.security.oauth2: DEBUG
+    org.springframework.security.oauth2.jwt: DEBUG
+    org.springframework.security.oauth2.server.resource: DEBUG
 

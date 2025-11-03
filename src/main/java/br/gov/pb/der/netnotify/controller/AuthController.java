@@ -14,6 +14,7 @@ import br.gov.pb.der.netnotify.dto.AuthCallbackRequest;
 import br.gov.pb.der.netnotify.dto.KeycloakTokenResponse;
 import br.gov.pb.der.netnotify.dto.RefreshTokenRequest;
 import br.gov.pb.der.netnotify.service.AuthService;
+import br.gov.pb.der.netnotify.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,6 +33,8 @@ public class AuthController {
 
     private final AuthService authService;
 
+    private final UserService userService;
+
     /**
      * Endpoint para troca de código por token
      *
@@ -47,6 +50,13 @@ public class AuthController {
     public ResponseEntity<String> getMethodName() {
         return ResponseEntity.ok("teste");
     }
+
+    /* @GetMapping("/whoami")
+    public ResponseEntity<UserInfo> whoAmI() {
+        User user = userService.getLoggedUser();
+    UserInfo userInfo = new UserInfo(user);
+        return ResponseEntity.ok(userInfo);
+    } */
 
     @PostMapping(value = "/callback", produces = "application/json")
     public ResponseEntity<KeycloakTokenResponse> callback(

@@ -9,6 +9,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +34,9 @@ public class KeycloakUserService {
             if (principal instanceof OidcUser oidcUser) {
                 return createKeycloakUserFromOidcUser(oidcUser);
             }
+        } else if (authentication instanceof JwtAuthenticationToken jwtAuth) {
+            // Suporte ao fluxo Resource Server (Bearer Token)
+            return createKeycloakUserFromJwt(jwtAuth);
         }
 
         log.warn("Usuário não está autenticado via OAuth2/OIDC. Tipo de autenticação: {}",
@@ -76,6 +81,39 @@ public class KeycloakUserService {
     }
 
     /**
+     * Cria um KeycloakUser a partir de um JwtAuthenticationToken (Resource Server)
+     */
+    private KeycloakUser createKeycloakUserFromJwt(JwtAuthenticationToken jwtAuth) {
+        try {
+            Jwt jwt = jwtAuth.getToken();
+
+            String id = jwt.getSubject();
+            String username = jwt.getClaimAsString("preferred_username");
+            String email = jwt.getClaimAsString("email");
+            String firstName = jwt.getClaimAsString("given_name");
+            String lastName = jwt.getClaimAsString("family_name");
+            Boolean emailVerified = jwt.getClaim("email_verified");
+
+            Set<GrantedAuthority> authorities = new HashSet<>(jwtAuth.getAuthorities());
+
+            return KeycloakUser.builder()
+                    .id(id)
+                    .username(username != null ? username : email)
+                    .email(email)
+                    .firstName(firstName)
+                    .lastName(lastName)
+                    .enabled(true)
+                    .emailVerified(emailVerified != null ? emailVerified : false)
+                    .authorities(authorities)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Erro ao criar KeycloakUser a partir do Jwt", e);
+            return null;
+        }
+    }
+
+    /**
      * Verifica se o usuário atual tem uma role específica
      */
     public boolean currentUserHasRole(String role) {
@@ -96,7 +134,7 @@ public class KeycloakUserService {
      */
     public String getCurrentUserId() {
         KeycloakUser user = getCurrentUser();
-        return user != null ? user.getId().toString() : null;
+        return user != null ? user.getId() : null;
     }
 
     /**

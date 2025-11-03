@@ -90,14 +90,14 @@ public class AuthService {
             // Step 2: Extrai informações do usuário do token do Keycloak
             KeycloakUser user = this.extractUserFromToken(keycloakAccessToken);
 
-            // Step 3: Cria JWT customizado
-            String jwtToken = this.createJwtToken(user);
+    // Step 3: (Opcional) Cria JWT customizado para uso interno da aplicação
+    // Observação: NÃO usar este token como Bearer para o Resource Server.
+    // Mantido apenas como possibilidade de uso interno futuro.
+    // this.createJwtToken(user);
 
-            log.info("✅ JWT customizado criado para usuário: {}", user.getEmail());
-
-            // Step 4: Monta resposta
+        // Step 4: Monta resposta retornando o access_token DO KEYCLOAK
             KeycloakTokenResponse response = KeycloakTokenResponse.builder()
-                    .accessToken(jwtToken)
+            .accessToken(keycloakAccessToken)
                     .refreshToken(refreshToken)
                     .expiresIn((long) expiresIn)
                     .tokenType("Bearer")
@@ -134,11 +134,14 @@ public class AuthService {
             // Extrai informações do usuário
             KeycloakUser user = this.extractUserFromToken(newAccessToken);
 
-            // Cria novo JWT customizado
-            String jwtToken = this.createJwtToken(user);
+    // (Opcional) Cria novo JWT customizado, mas NÃO o retorna como access_token
+    // Mantido apenas como possibilidade de uso interno futuro.
+    // this.createJwtToken(user);
 
             KeycloakTokenResponse response = KeycloakTokenResponse.builder()
-                    .accessToken(jwtToken)
+            // Retorne o access_token do Keycloak para o frontend usar nas chamadas
+            // ao backend, garantindo validação RS256 via issuer-uri
+            .accessToken(newAccessToken)
                     .refreshToken(newRefreshToken)
                     .expiresIn((long) expiresIn)
                     .tokenType("Bearer")
@@ -245,6 +248,7 @@ public class AuthService {
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);
 
         try {
+            @SuppressWarnings("unchecked")
             Map<String, Object> response = restTemplate.postForObject(tokenUrl, request, Map.class);
 
             if (response == null) {
@@ -270,7 +274,6 @@ public class AuthService {
             // Decodifica token (sem validação, pois já foi validado pelo Keycloak)
             var decodedJWT = JWT.decode(token);
             String email = decodedJWT.getClaim("email").asString();
-            String name = decodedJWT.getClaim("name").asString();
             String givenName = decodedJWT.getClaim("given_name").asString();
             String familyName = decodedJWT.getClaim("family_name").asString();
             String sub = decodedJWT.getClaim("sub").asString();
