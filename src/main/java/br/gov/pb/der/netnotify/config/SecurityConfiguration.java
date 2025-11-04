@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -41,13 +42,20 @@ public class SecurityConfiguration {
     @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri:not-configured}")
     private String issuerUri;
 
+    @Value("${app.keycloak.roles.user:NETNOTIFY1}")
+    private String roleUser;
+
+    @Value("${app.keycloak.roles.admin:NETNOTIFY2}")
+    private String roleAdmin;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers("/messages/**").hasAnyRole("USER", "user")
+                .requestMatchers("/messages/**").hasAnyRole(roleUser, roleAdmin)
                 .requestMatchers("/aux/**").authenticated()
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/profile/**").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/messages/**").hasAnyRole(roleAdmin)
                 .anyRequest().authenticated())
                 .oauth2ResourceServer(
                         oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))

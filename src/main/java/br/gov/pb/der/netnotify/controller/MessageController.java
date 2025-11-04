@@ -60,7 +60,7 @@ public class MessageController {
     }
 
     // parametros de url .... clone-message-id
-    @GetMapping(value = { "/", "" }, params = "clone-message-id")
+    @GetMapping(value = {"/", ""}, params = "clone-message-id")
     public ResponseEntity<MessageDto> getSimpleMessage(@RequestParam(name = "clone-message-id") UUID id) {
         MessageDto messageDto = messageService.findMessageDtoById(id);
         if (messageDto == null) {

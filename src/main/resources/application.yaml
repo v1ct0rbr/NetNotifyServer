@@ -53,7 +53,10 @@ app:
     token-url: ${KEYCLOAK_TOKEN_URL:https://seudominio.com.br/realms/testes/protocol/openid-connect/token}
     # Redirect URI que deve corresponder EXATAMENTE ao registrado no Keycloak Admin Console
     # Valid Redirect URIs: http://localhost:5173/callback ou outro conforme configurado no Keycloak
-    redirect-uri: ${KEYCLOAK_REDIRECT_URI:http://localhost:5173/callback}        
+    redirect-uri: ${KEYCLOAK_REDIRECT_URI:http://localhost:5173/callback}  
+    roles:
+      admin: ${ROLE_ADMIN:NETNOTIFY_ADMIN}
+      user: ${ROLE_USER:NETNOTIFY_USER}      
   jwt:
     secret: ${JWT_SECRET:myjwtsecretkey}
     expiration: ${JWT_EXPIRATION:3600000} # 1 hora
