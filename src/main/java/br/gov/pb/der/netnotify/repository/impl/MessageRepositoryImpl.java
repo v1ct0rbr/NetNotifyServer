@@ -136,4 +136,10 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         }
         return entityManager.createQuery(cq).getSingleResult();
     }
+
+    @Override
+    public List<MessageResponseDto> findMessagesForResend() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'findMessagesForResend'");
+    }
 }

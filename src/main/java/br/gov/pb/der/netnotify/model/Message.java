@@ -1,6 +1,7 @@
 package br.gov.pb.der.netnotify.model;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import org.hibernate.annotations.CreationTimestamp;
@@ -13,6 +14,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -57,6 +60,23 @@ public class Message {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "repeat_interval_minutes")
+    private Integer repeatIntervalMinutes;
+
+    @Column(name = "expire_at")
+    private LocalDateTime expireAt;
+
+    @Column(name = "last_sent_at")
+    private LocalDateTime lastSentAt;
+
+    @ManyToMany
+    @JoinTable(
+        name = "message_group",
+        joinColumns = @JoinColumn(name = "message_id"),
+        inverseJoinColumns = @JoinColumn(name = "group_id")
+    )
+    private List<Group> groups;
 
     public MessageResponseDto objectMapper() {
         return new MessageResponseDto(  
