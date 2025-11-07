@@ -40,7 +40,7 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         // Use explicit LEFT joins for associations to avoid implicit inner joins
         Join<Message, br.gov.pb.der.netnotify.model.Level> levelJoin = message.join(Message_.level, JoinType.LEFT);
         Join<Message, br.gov.pb.der.netnotify.model.MessageType> typeJoin = message.join(Message_.type, JoinType.LEFT);
-        Join<Message, br.gov.pb.der.netnotify.model.User> userJoin = message.join(Message_.user, JoinType.LEFT);
+        Join<Message, br.gov.pb.der.netnotify.model.User> userJoin = message.join(Message_.user, JoinType.LEFT);        
 
         cq.select(cb.construct(MessageResponseDto.class,
                 message.get(Message_.id),

@@ -1,5 +1,8 @@
 package br.gov.pb.der.netnotify.dto;
 
+import java.util.List;
+import java.util.UUID;
+
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
@@ -25,14 +28,17 @@ public class MessageDto implements java.io.Serializable {
     @Min(value = 1, message = "O tipo de mensagem deve ser maior que 0")
     private Integer type;
 
+    private List<UUID> departments;
+
     public MessageDto() {
     }
 
-    public MessageDto(String title, String content, Integer level, Integer type) {
+    public MessageDto(String title, String content, Integer level, Integer type, List<UUID> departments) {
         this.title = title;
         this.content = content;
         this.level = level;
         this.type = type;
+        this.departments = departments;
     }
 
 }

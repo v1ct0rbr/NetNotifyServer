@@ -72,11 +72,11 @@ public class Message {
 
     @ManyToMany
     @JoinTable(
-        name = "message_group",
+        name = "message_department",
         joinColumns = @JoinColumn(name = "message_id"),
-        inverseJoinColumns = @JoinColumn(name = "group_id")
+        inverseJoinColumns = @JoinColumn(name = "department_id")
     )
-    private List<Group> groups;
+    private List<Department> departments;
 
     public MessageResponseDto objectMapper() {
         return new MessageResponseDto(  

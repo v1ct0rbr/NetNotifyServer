@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import br.gov.pb.der.netnotify.model.Level;
 import br.gov.pb.der.netnotify.model.MessageType;
+import br.gov.pb.der.netnotify.service.DepartmentService;
 import br.gov.pb.der.netnotify.service.LevelService;
 import br.gov.pb.der.netnotify.service.MessageTypeService;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ public class AuxController {
 
     private final MessageTypeService messageTypeService;
     private final LevelService levelService;
+    private final DepartmentService departmentService;
 
     @GetMapping(value = "/message-types", produces = "application/json")
     public ResponseEntity<List<MessageType>> getAllMessageTypes() {
@@ -31,6 +33,12 @@ public class AuxController {
     public ResponseEntity<List<Level>> getAllLevels() {
         List<Level> levels = levelService.findAll();
         return ResponseEntity.ok(levels);
+    }
+
+    @GetMapping(value = "/departments", produces = "application/json")
+    public ResponseEntity<List<br.gov.pb.der.netnotify.model.Department>> getAllDepartments() {
+        List<br.gov.pb.der.netnotify.model.Department> departments = departmentService.findAll();
+        return ResponseEntity.ok(departments);
     }
 
 }

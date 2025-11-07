@@ -21,6 +21,7 @@ import br.gov.pb.der.netnotify.dto.MessageDto;
 import br.gov.pb.der.netnotify.filter.MessageFilter;
 import br.gov.pb.der.netnotify.model.Message;
 import br.gov.pb.der.netnotify.response.MessageResponseDto;
+import br.gov.pb.der.netnotify.service.DepartmentService;
 import br.gov.pb.der.netnotify.service.LevelService;
 import br.gov.pb.der.netnotify.service.MessageService;
 import br.gov.pb.der.netnotify.service.MessageTypeService;
@@ -45,6 +46,8 @@ public class MessageController {
     private final LevelService levelService;
 
     private final MessageTypeService messageTypeService;
+
+    private final DepartmentService departmentService;
 
     private final RabbitmqService rabbitmqService;
 
@@ -85,6 +88,11 @@ public class MessageController {
             message.setLevel(levelService.findById(messageDto.getLevel()));
             message.setType(messageTypeService.findById(messageDto.getType()));
             message.setUser(userService.getLoggedUser());
+            message.setDepartments(messageDto.getDepartments().stream()
+                    .map(deptId -> departmentService.findById(deptId))
+                    .filter(dept -> dept != null)
+                    .toList());
+
             messageService.save(message);
             sendNotification(message);
             return ResponseEntity.ok(SimpleResponseUtils.success(message.getId(), "Mensagem salva com sucesso."));
