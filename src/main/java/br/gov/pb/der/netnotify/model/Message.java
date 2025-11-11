@@ -78,6 +78,9 @@ public class Message {
     )
     private List<Department> departments;
 
+    @Column(name = "send_to_subdivisions")
+    private Boolean sendToSubdivisions;
+
     public MessageResponseDto objectMapper() {
         return new MessageResponseDto(  
                 this.id,              

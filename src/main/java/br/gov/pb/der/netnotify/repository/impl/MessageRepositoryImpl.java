@@ -1,7 +1,13 @@
 package br.gov.pb.der.netnotify.repository.impl;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -40,7 +46,7 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         // Use explicit LEFT joins for associations to avoid implicit inner joins
         Join<Message, br.gov.pb.der.netnotify.model.Level> levelJoin = message.join(Message_.level, JoinType.LEFT);
         Join<Message, br.gov.pb.der.netnotify.model.MessageType> typeJoin = message.join(Message_.type, JoinType.LEFT);
-        Join<Message, br.gov.pb.der.netnotify.model.User> userJoin = message.join(Message_.user, JoinType.LEFT);        
+        Join<Message, br.gov.pb.der.netnotify.model.User> userJoin = message.join(Message_.user, JoinType.LEFT);
 
         cq.select(cb.construct(MessageResponseDto.class,
                 message.get(Message_.id),
@@ -89,6 +95,32 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         query.setFirstResult((int) pageable.getOffset());
         query.setMaxResults(pageable.getPageSize());
         List<MessageResponseDto> content = query.getResultList();
+
+        // Enriquecer com departamentos vinculados à mensagem, evitando N+1
+        if (!content.isEmpty()) {
+            List<UUID> ids = content.stream().map(MessageResponseDto::getId).toList();
+            // JPQL simples para buscar departamentos por mensagem
+            List<Object[]> rows = entityManager.createQuery(
+                    "select m.id, d.id, d.name from Message m join m.departments d where m.id in :ids",
+                    Object[].class)
+                    .setParameter("ids", ids)
+                    .getResultList();
+
+            Map<UUID, List<MessageResponseDto.DepartmentInfo>> byMessage = new HashMap<>();
+            for (Object[] r : rows) {
+                UUID mid = (UUID) r[0];
+                UUID did = (UUID) r[1];
+                String dname = (String) r[2];
+                byMessage.computeIfAbsent(mid, k -> new ArrayList<>())
+                        .add(new MessageResponseDto.DepartmentInfo(did, dname));
+            }
+            for (MessageResponseDto dto : content) {
+                List<MessageResponseDto.DepartmentInfo> deps = byMessage.get(dto.getId());
+                if (deps != null) {
+                    dto.setDepartments(deps);
+                }
+            }
+        }
         // para cada objeto o atributo content deve ser completado com "..." se tiver
         // mais de 20 caracteres
         for (MessageResponseDto dto : content) {
@@ -140,6 +172,30 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
     @Override
     public List<MessageResponseDto> findMessagesForResend() {
         // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'findMessagesForResend'");
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<MessageResponseDto> cq = cb.createQuery(MessageResponseDto.class);
+        Root<Message> message = cq.from(Message.class);
+        cq.select(cb.construct(MessageResponseDto.class,
+                message.get(Message_.id),
+                message.get(Message_.title),
+                message.get(Message_.content),
+                message.get(Message_.level).get(Level_.name),
+                message.get(Message_.type).get(MessageType_.name),
+                message.get(Message_.user).get("username"),
+                message.get(Message_.createdAt),
+                message.get(Message_.updatedAt)));
+        List<Predicate> predicates = new ArrayList<>();
+        predicates.add(cb.isNotNull(message.get(Message_.repeatIntervalMinutes)));
+        LocalDateTime lastDateTimeOfToday = LocalDate.now().atTime(LocalTime.MAX);
+        // Exemplo de filtro adicional até o fim do dia (evita variável não usada)
+        predicates.add(cb.and(cb.isNotNull(message.get(Message_.expireAt)), cb.lessThanOrEqualTo(message.get(Message_.expireAt), lastDateTimeOfToday)));
+
+        if (!predicates.isEmpty()) {
+            cq.where(cb.and(predicates.toArray(new Predicate[0])));
+        }
+
+        TypedQuery<MessageResponseDto> query = entityManager.createQuery(cq);
+        List<MessageResponseDto> result = query.getResultList();
+        return result;
     }
 }

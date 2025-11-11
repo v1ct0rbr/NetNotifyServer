@@ -28,6 +28,8 @@ public class MessageDto implements java.io.Serializable {
     @Min(value = 1, message = "O tipo de mensagem deve ser maior que 0")
     private Integer type;
 
+    private Boolean sendToSubDepartments;
+
     private List<UUID> departments;
 
     public MessageDto() {

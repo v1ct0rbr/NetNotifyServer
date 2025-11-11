@@ -13,6 +13,8 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "department")
+@lombok.Getter
+@lombok.Setter
 public class Department {
 
     @Id
@@ -25,5 +27,10 @@ public class Department {
     @ManyToOne
     @JoinColumn(name = "parent_department_id")
     private Department parentDepartment;
+
+    @Column(name = "send_to_sub_divisions")
+    private Boolean sendToSubdivisions;
+
+
 
 }
