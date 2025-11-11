@@ -19,6 +19,12 @@ public class MessageResponseDto implements Serializable {
     private String user;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+        
+    private Boolean sendToSubdivisions;
+    private Integer repeatIntervalMinutes;
+ 
+    private LocalDateTime expireAt;
+    private LocalDateTime lastSentAt;
     private List<DepartmentInfo> departments;
     
     public MessageResponseDto() {
@@ -40,7 +46,8 @@ public class MessageResponseDto implements Serializable {
     }
 
     public MessageResponseDto(UUID id, String title, String content, String level, String messageType, String user,
-            LocalDateTime createdAt, LocalDateTime updatedAt) {
+            LocalDateTime createdAt, LocalDateTime updatedAt, LocalDateTime expireAt, LocalDateTime lastSentAt,
+             Integer repeatIntervalMinutes, Boolean sendToSubdivisions) {
         this.id = id;
         this.title = title;
         this.content = content;
@@ -49,6 +56,11 @@ public class MessageResponseDto implements Serializable {
         this.createdAt = createdAt;
         this.user = user;
         this.updatedAt = updatedAt;
+        this.expireAt = expireAt;
+        this.sendToSubdivisions = sendToSubdivisions;
+        this.repeatIntervalMinutes = repeatIntervalMinutes;
+        this.lastSentAt = lastSentAt;        
+        
     }
 
     

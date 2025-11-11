@@ -1,5 +1,6 @@
 package br.gov.pb.der.netnotify.dto;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,6 +30,8 @@ public class MessageDto implements java.io.Serializable {
     private Integer type;
 
     private Boolean sendToSubDepartments;
+
+    private LocalDateTime expireAt;
 
     private List<UUID> departments;
 

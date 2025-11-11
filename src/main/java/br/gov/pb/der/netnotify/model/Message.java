@@ -90,7 +90,11 @@ public class Message {
                 this.type != null ? this.type.getName() : null,
                 this.user != null ? this.user.getUsername() : null,
                 this.createdAt,
-                this.updatedAt
+                this.updatedAt,
+                this.expireAt,
+                this.lastSentAt,
+                this.repeatIntervalMinutes,
+                this.sendToSubdivisions
         );
 
     }

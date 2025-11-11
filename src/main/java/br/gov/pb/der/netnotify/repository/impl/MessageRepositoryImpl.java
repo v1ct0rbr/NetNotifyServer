@@ -18,6 +18,7 @@ import br.gov.pb.der.netnotify.model.Level_;
 import br.gov.pb.der.netnotify.model.Message;
 import br.gov.pb.der.netnotify.model.MessageType_;
 import br.gov.pb.der.netnotify.model.Message_;
+import br.gov.pb.der.netnotify.model.User_;
 import br.gov.pb.der.netnotify.repository.custom.MessageRepositoryCustom;
 import br.gov.pb.der.netnotify.response.MessageResponseDto;
 import br.gov.pb.der.netnotify.utils.Functions;
@@ -56,7 +57,11 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 typeJoin.get(MessageType_.name),
                 userJoin.get("username"),
                 message.get(Message_.createdAt),
-                message.get(Message_.updatedAt)));
+                message.get(Message_.updatedAt),
+                message.get(Message_.expireAt),
+                message.get(Message_.lastSentAt),
+                message.get(Message_.repeatIntervalMinutes),
+                message.get(Message_.sendToSubdivisions)));
         // Filtros dinâmicos
         List<Predicate> predicates = new ArrayList<>();
         if (filter != null) {
@@ -181,14 +186,21 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 message.get(Message_.content),
                 message.get(Message_.level).get(Level_.name),
                 message.get(Message_.type).get(MessageType_.name),
-                message.get(Message_.user).get("username"),
+                message.get(Message_.user).get(User_.username),
                 message.get(Message_.createdAt),
-                message.get(Message_.updatedAt)));
+                message.get(Message_.updatedAt),
+                message.get(Message_.expireAt),
+                message.get(Message_.lastSentAt),
+                message.get(Message_.repeatIntervalMinutes),
+                message.get(Message_.sendToSubdivisions)));
+        // Filtros dinâmicos
+
         List<Predicate> predicates = new ArrayList<>();
         predicates.add(cb.isNotNull(message.get(Message_.repeatIntervalMinutes)));
         LocalDateTime lastDateTimeOfToday = LocalDate.now().atTime(LocalTime.MAX);
         // Exemplo de filtro adicional até o fim do dia (evita variável não usada)
         predicates.add(cb.and(cb.isNotNull(message.get(Message_.expireAt)), cb.lessThanOrEqualTo(message.get(Message_.expireAt), lastDateTimeOfToday)));
+
 
         if (!predicates.isEmpty()) {
             cq.where(cb.and(predicates.toArray(new Predicate[0])));
@@ -196,6 +208,20 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
 
         TypedQuery<MessageResponseDto> query = entityManager.createQuery(cq);
         List<MessageResponseDto> result = query.getResultList();
-        return result;
+        List<MessageResponseDto> filteredResult = new ArrayList<>();
+        for (MessageResponseDto dto : result) {
+            boolean added = false;
+            if (dto.getLastSentAt() != null && dto.getRepeatIntervalMinutes() != null) {
+                LocalDateTime nextSendTime = dto.getLastSentAt().plusMinutes(dto.getRepeatIntervalMinutes());
+                if (nextSendTime.isBefore(LocalDateTime.now()) || nextSendTime.isEqual(LocalDateTime.now())) {
+                    filteredResult.add(dto);
+                }
+            } else if (dto.getLastSentAt() == null) {
+                // Se nunca foi enviado, considerar para reenvio
+                filteredResult.add(dto);
+            }
+        }
+
+        return filteredResult;
     }
 }
