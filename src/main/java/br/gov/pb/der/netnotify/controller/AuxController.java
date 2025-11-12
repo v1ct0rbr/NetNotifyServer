@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.gov.pb.der.netnotify.dto.DepartmentDto;
 import br.gov.pb.der.netnotify.model.Level;
 import br.gov.pb.der.netnotify.model.MessageType;
 import br.gov.pb.der.netnotify.service.DepartmentService;
@@ -36,8 +37,8 @@ public class AuxController {
     }
 
     @GetMapping(value = "/departments", produces = "application/json")
-    public ResponseEntity<List<br.gov.pb.der.netnotify.model.Department>> getAllDepartments() {
-        List<br.gov.pb.der.netnotify.model.Department> departments = departmentService.findAll();
+    public ResponseEntity<List<DepartmentDto>> getAllDepartments() {
+        List<DepartmentDto> departments = departmentService.findAllDto();
         return ResponseEntity.ok(departments);
     }
 

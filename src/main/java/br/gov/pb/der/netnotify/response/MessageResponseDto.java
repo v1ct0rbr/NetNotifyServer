@@ -2,6 +2,7 @@ package br.gov.pb.der.netnotify.response;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -28,6 +29,7 @@ public class MessageResponseDto implements Serializable {
     private List<DepartmentInfo> departments;
     
     public MessageResponseDto() {
+        this.departments = new ArrayList<>();
     }
 
     public MessageResponseDto(Message message) {

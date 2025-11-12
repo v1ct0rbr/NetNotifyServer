@@ -28,9 +28,4 @@ public class Department {
     @JoinColumn(name = "parent_department_id")
     private Department parentDepartment;
 
-    @Column(name = "send_to_sub_divisions")
-    private Boolean sendToSubdivisions;
-
-
-
 }

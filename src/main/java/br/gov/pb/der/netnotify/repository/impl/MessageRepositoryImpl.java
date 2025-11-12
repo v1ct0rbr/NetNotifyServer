@@ -99,14 +99,14 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
 
         query.setFirstResult((int) pageable.getOffset());
         query.setMaxResults(pageable.getPageSize());
-        List<MessageResponseDto> content = query.getResultList();
+        List<MessageResponseDto> result = query.getResultList();
 
         // Enriquecer com departamentos vinculados à mensagem, evitando N+1
-        if (!content.isEmpty()) {
-            List<UUID> ids = content.stream().map(MessageResponseDto::getId).toList();
+        if (!result.isEmpty()) {
+            List<UUID> ids = result.stream().map(MessageResponseDto::getId).toList();
             // JPQL simples para buscar departamentos por mensagem
-            List<Object[]> rows = entityManager.createQuery(
-                    "select m.id, d.id, d.name from Message m join m.departments d where m.id in :ids",
+        List<Object[]> rows = entityManager.createQuery(
+            "select m.id, d.id, d.name from Message m left join m.departments d where m.id in :ids",
                     Object[].class)
                     .setParameter("ids", ids)
                     .getResultList();
@@ -119,16 +119,18 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 byMessage.computeIfAbsent(mid, k -> new ArrayList<>())
                         .add(new MessageResponseDto.DepartmentInfo(did, dname));
             }
-            for (MessageResponseDto dto : content) {
+            for (MessageResponseDto dto : result) {
                 List<MessageResponseDto.DepartmentInfo> deps = byMessage.get(dto.getId());
                 if (deps != null) {
                     dto.setDepartments(deps);
+                } else {
+                    dto.setDepartments(java.util.Collections.emptyList());
                 }
             }
         }
         // para cada objeto o atributo content deve ser completado com "..." se tiver
         // mais de 20 caracteres
-        for (MessageResponseDto dto : content) {
+        for (MessageResponseDto dto : result) {
             if (dto.getContent() != null) {
                 if (dto.getContent().length() < 11) {
                     dto.setContent(Functions.removeHtmlTags(dto.getContent()) + "...");
@@ -138,7 +140,7 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
             }
         }
 
-        Page<MessageResponseDto> resultPage = new org.springframework.data.domain.PageImpl<>(content, pageable,
+        Page<MessageResponseDto> resultPage = new org.springframework.data.domain.PageImpl<>(result, pageable,
                 countMessages(filter));
         return resultPage;
 
@@ -175,8 +177,7 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
     }
 
     @Override
-    public List<MessageResponseDto> findMessagesForResend() {
-        // TODO Auto-generated method stub
+    public List<MessageResponseDto> findMessagesForResend() {        
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<MessageResponseDto> cq = cb.createQuery(MessageResponseDto.class);
         Root<Message> message = cq.from(Message.class);
@@ -201,7 +202,6 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         // Exemplo de filtro adicional até o fim do dia (evita variável não usada)
         predicates.add(cb.and(cb.isNotNull(message.get(Message_.expireAt)), cb.lessThanOrEqualTo(message.get(Message_.expireAt), lastDateTimeOfToday)));
 
-
         if (!predicates.isEmpty()) {
             cq.where(cb.and(predicates.toArray(new Predicate[0])));
         }
@@ -210,18 +210,40 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         List<MessageResponseDto> result = query.getResultList();
         List<MessageResponseDto> filteredResult = new ArrayList<>();
         for (MessageResponseDto dto : result) {
-            boolean added = false;
+
             if (dto.getLastSentAt() != null && dto.getRepeatIntervalMinutes() != null) {
                 LocalDateTime nextSendTime = dto.getLastSentAt().plusMinutes(dto.getRepeatIntervalMinutes());
                 if (nextSendTime.isBefore(LocalDateTime.now()) || nextSendTime.isEqual(LocalDateTime.now())) {
+                    feedDeparmentsToMessageResponseDto(dto);
                     filteredResult.add(dto);
+
                 }
             } else if (dto.getLastSentAt() == null) {
                 // Se nunca foi enviado, considerar para reenvio
+                feedDeparmentsToMessageResponseDto(dto);
                 filteredResult.add(dto);
             }
+
         }
 
         return filteredResult;
+    }
+
+    public void feedDeparmentsToMessageResponseDto(MessageResponseDto dto) {
+        if (dto == null || dto.getId() == null) {
+            return;
+        }
+        List<Object[]> rows = entityManager.createQuery(
+                "select d.id, d.name from Message m join m.departments d where m.id = :id",
+                Object[].class)
+                .setParameter("id", dto.getId())
+                .getResultList();
+        List<MessageResponseDto.DepartmentInfo> departments = new ArrayList<>();
+        for (Object[] r : rows) {
+            UUID did = (UUID) r[0];
+            String dname = (String) r[1];
+            departments.add(new MessageResponseDto.DepartmentInfo(did, dname));
+        }
+        dto.setDepartments(departments);
     }
 }
