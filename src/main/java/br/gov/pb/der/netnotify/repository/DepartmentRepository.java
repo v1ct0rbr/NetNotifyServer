@@ -11,6 +11,6 @@ import br.gov.pb.der.netnotify.model.Department;
 
 public interface DepartmentRepository extends JpaRepository<Department, UUID> {
 
-    @Query("SELECT new br.gov.pb.der.netnotify.dto.DepartmentDto(d.id, d.name) FROM Department d")
+    @Query("SELECT new br.gov.pb.der.netnotify.dto.DepartmentDto(d.id, d.name, d.parentDepartment.id) FROM Department d")
     public List<DepartmentDto> findAllDto();
 }

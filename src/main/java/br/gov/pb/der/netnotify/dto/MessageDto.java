@@ -29,7 +29,7 @@ public class MessageDto implements java.io.Serializable {
     @Min(value = 1, message = "O tipo de mensagem deve ser maior que 0")
     private Integer type;
 
-    private Boolean sendToSubDepartments;
+    private Boolean sendToSubdivisions;
 
     private LocalDateTime expireAt;
 
@@ -38,7 +38,10 @@ public class MessageDto implements java.io.Serializable {
     public MessageDto() {
     }
 
-    public MessageDto(String title, String content, Integer level, Integer type, List<UUID> departments) {
+    public MessageDto(String title, String content, Integer level, Integer type, List<UUID> departments, Boolean sendToSubdivisions,
+            LocalDateTime expireAt) {
+         this.sendToSubdivisions = sendToSubdivisions;
+         this.expireAt = expireAt;
         this.title = title;
         this.content = content;
         this.level = level;

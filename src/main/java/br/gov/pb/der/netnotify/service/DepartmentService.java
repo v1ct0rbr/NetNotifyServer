@@ -27,4 +27,18 @@ public class DepartmentService {
         return departmentRepository.findById(id).orElse(null);
     }
 
+    public void saveFromDto(DepartmentDto dto) {
+        Department department = new Department();
+        department.setName(dto.getName());
+        if (dto.getParentDepartmentId() != null) {
+            Department parent = departmentRepository.findById(dto.getParentDepartmentId()).orElse(null);
+            department.setParentDepartment(parent);
+        }
+        departmentRepository.save(department);
+    }
+
+    public void deleteById(java.util.UUID id) {
+        departmentRepository.deleteById(id);
+    }
+
 }

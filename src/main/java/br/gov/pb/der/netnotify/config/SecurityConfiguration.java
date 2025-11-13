@@ -56,6 +56,7 @@ public class SecurityConfiguration {
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/profile/**").authenticated()
                 .requestMatchers(HttpMethod.DELETE, "/messages/**").hasAnyRole(roleAdmin)
+                .requestMatchers("/departments/**").hasAnyRole(roleAdmin)
                 .anyRequest().authenticated())
                 .oauth2ResourceServer(
                         oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))

@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import br.gov.pb.der.netnotify.dto.MessageDto;
 import br.gov.pb.der.netnotify.filter.MessageFilter;
 import br.gov.pb.der.netnotify.model.Level_;
 import br.gov.pb.der.netnotify.model.Message;
@@ -105,8 +106,8 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         if (!result.isEmpty()) {
             List<UUID> ids = result.stream().map(MessageResponseDto::getId).toList();
             // JPQL simples para buscar departamentos por mensagem
-        List<Object[]> rows = entityManager.createQuery(
-            "select m.id, d.id, d.name from Message m left join m.departments d where m.id in :ids",
+            List<Object[]> rows = entityManager.createQuery(
+                    "select m.id, d.id, d.name from Message m left join m.departments d where m.id in :ids",
                     Object[].class)
                     .setParameter("ids", ids)
                     .getResultList();
@@ -177,7 +178,7 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
     }
 
     @Override
-    public List<MessageResponseDto> findMessagesForResend() {        
+    public List<MessageResponseDto> findMessagesForResend() {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<MessageResponseDto> cq = cb.createQuery(MessageResponseDto.class);
         Root<Message> message = cq.from(Message.class);
@@ -245,5 +246,25 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
             departments.add(new MessageResponseDto.DepartmentInfo(did, dname));
         }
         dto.setDepartments(departments);
+    }
+
+    @Override
+    public MessageDto findMessageDtoById(UUID id) {
+        Message message = entityManager.find(Message.class, id);
+        if (message == null) {
+            return null;
+        }
+        MessageDto dto = new MessageDto(
+                message.getTitle(),
+                message.getContent(),
+                message.getLevel() != null ? message.getLevel().getId() : null,
+                message.getType() != null ? message.getType().getId() : null,
+                message.getDepartments() != null
+                ? message.getDepartments().stream().map(d -> d.getId()).toList()
+                : new ArrayList<>(),
+                message.getSendToSubdivisions(),
+                message.getExpireAt());
+        return dto;
+
     }
 }

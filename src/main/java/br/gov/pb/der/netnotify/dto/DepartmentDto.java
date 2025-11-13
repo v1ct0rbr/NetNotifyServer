@@ -15,6 +15,7 @@ public class DepartmentDto {
 
     private UUID id;
     private String name;
+    private UUID parentDepartmentId;
 
     public DepartmentDto(String name) {
         this.name = name;
