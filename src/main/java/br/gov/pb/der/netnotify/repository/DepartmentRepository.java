@@ -6,11 +6,11 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
-import br.gov.pb.der.netnotify.dto.DepartmentDto;
 import br.gov.pb.der.netnotify.model.Department;
+import br.gov.pb.der.netnotify.response.DepartmentResponseDto;
 
 public interface DepartmentRepository extends JpaRepository<Department, UUID> {
 
-    @Query("SELECT new br.gov.pb.der.netnotify.dto.DepartmentDto(d.id, d.name, d.parentDepartment.id) FROM Department d")
-    public List<DepartmentDto> findAllDto();
+    @Query("SELECT new br.gov.pb.der.netnotify.response.DepartmentResponseDto(d.id, d.name, d.parentDepartment.id, d.parentDepartment.name) FROM Department d left JOIN d.parentDepartment")
+    public List<DepartmentResponseDto> findAllDto();
 }

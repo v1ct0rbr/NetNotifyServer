@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import br.gov.pb.der.netnotify.dto.DepartmentDto;
 import br.gov.pb.der.netnotify.model.Department;
 import br.gov.pb.der.netnotify.repository.DepartmentRepository;
+import br.gov.pb.der.netnotify.response.DepartmentResponseDto;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -19,7 +20,7 @@ public class DepartmentService {
         return departmentRepository.findAll();
     }
 
-    public List<DepartmentDto> findAllDto() {
+    public List<DepartmentResponseDto> findAllDto() {
         return departmentRepository.findAllDto();
     }
 
@@ -27,7 +28,7 @@ public class DepartmentService {
         return departmentRepository.findById(id).orElse(null);
     }
 
-    public void saveFromDto(DepartmentDto dto) {
+    public Department saveFromDto(DepartmentDto dto) {
         Department department = new Department();
         department.setName(dto.getName());
         if (dto.getParentDepartmentId() != null) {
@@ -35,6 +36,8 @@ public class DepartmentService {
             department.setParentDepartment(parent);
         }
         departmentRepository.save(department);
+        return department;
+
     }
 
     public void deleteById(java.util.UUID id) {

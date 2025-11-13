@@ -6,13 +6,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.gov.pb.der.netnotify.dto.DepartmentDto;
+import br.gov.pb.der.netnotify.model.Department;
 import br.gov.pb.der.netnotify.service.DepartmentService;
 import br.gov.pb.der.netnotify.utils.Functions;
 import br.gov.pb.der.netnotify.utils.SimpleResponseUtils;
@@ -37,16 +38,16 @@ public class DepartmentController {
                     .body(SimpleResponseUtils.error(null, Functions.errorStringfy(bindingResult)));
         }
         try {
-            departmentService.saveFromDto(messageDto);
-            return ResponseEntity.ok(SimpleResponseUtils.success(null, "Departamento salvo com sucesso."));
+            Department savedDepartment = departmentService.saveFromDto(messageDto);
+            return ResponseEntity.ok(SimpleResponseUtils.success(savedDepartment.getId(), "Departamento salvo com sucesso."));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(SimpleResponseUtils.error(null, "Erro ao salvar a mensagem: " + e.getMessage()));
         }
     }
 
-    @DeleteMapping(path = "/delete", params = "id")
-    public ResponseEntity<SimpleResponseUtils<?>> deleteMessage(@RequestParam UUID id) {
+    @DeleteMapping("/{id}")
+    public ResponseEntity<SimpleResponseUtils<?>> deleteMessage(@PathVariable UUID id) {
         try {
             departmentService.deleteById(id);
             return ResponseEntity.ok(SimpleResponseUtils.success(null, "Departamento deletado com sucesso."));
