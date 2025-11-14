@@ -4,6 +4,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.format.annotation.DateTimeFormat;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
@@ -29,8 +33,11 @@ public class MessageDto implements java.io.Serializable {
     @Min(value = 1, message = "O tipo de mensagem deve ser maior que 0")
     private Integer type;
 
+    @JsonProperty("sendToSubdivisions")
     private Boolean sendToSubdivisions;
 
+    @JsonProperty("expireAt")
+    @DateTimeFormat(pattern="dd-MM-yyyy HH:mm")
     private LocalDateTime expireAt;
 
     private List<UUID> departments;

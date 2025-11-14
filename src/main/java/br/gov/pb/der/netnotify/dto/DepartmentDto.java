@@ -2,6 +2,8 @@ package br.gov.pb.der.netnotify.dto;
 
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -15,6 +17,7 @@ public class DepartmentDto {
 
     private UUID id;
     private String name;
+    @JsonProperty("parentDepartmentId")
     private UUID parentDepartmentId;
 
     public DepartmentDto(String name) {

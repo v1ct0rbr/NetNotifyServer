@@ -8,6 +8,7 @@ import br.gov.pb.der.netnotify.dto.DepartmentDto;
 import br.gov.pb.der.netnotify.model.Department;
 import br.gov.pb.der.netnotify.repository.DepartmentRepository;
 import br.gov.pb.der.netnotify.response.DepartmentResponseDto;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -30,17 +31,25 @@ public class DepartmentService {
 
     public Department saveFromDto(DepartmentDto dto) {
         Department department = new Department();
-        department.setName(dto.getName());
+
+        if (dto.getId() != null) {
+            department = departmentRepository.findById(dto.getId()).orElse(new Department());
+        }
         if (dto.getParentDepartmentId() != null) {
             Department parent = departmentRepository.findById(dto.getParentDepartmentId()).orElse(null);
             department.setParentDepartment(parent);
+        }else {
+            department.setParentDepartment(null);
         }
+        department.setName(dto.getName());
         departmentRepository.save(department);
         return department;
 
     }
 
+    @Transactional
     public void deleteById(java.util.UUID id) {
+        departmentRepository.setNullParentDepartmentById(id);
         departmentRepository.deleteById(id);
     }
 

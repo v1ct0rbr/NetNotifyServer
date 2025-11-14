@@ -8,6 +8,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,6 +44,26 @@ public class DepartmentController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(SimpleResponseUtils.error(null, "Erro ao salvar a mensagem: " + e.getMessage()));
+        }
+    }
+
+    @PutMapping("/update")
+    public ResponseEntity<SimpleResponseUtils<?>> updateMessage(@RequestBody @Valid DepartmentDto messageDto,
+            BindingResult bindingResult) {
+        if (bindingResult.hasErrors()) {
+            return ResponseEntity.badRequest()
+                    .body(SimpleResponseUtils.error(null, Functions.errorStringfy(bindingResult)));
+        }
+        if( messageDto.getId() == null ) {
+            return ResponseEntity.badRequest()
+                    .body(SimpleResponseUtils.error(null, "ID do departamento é obrigatório para atualização."));
+        }
+        try {
+            Department updatedDepartment = departmentService.saveFromDto(messageDto);
+            return ResponseEntity.ok(SimpleResponseUtils.success(updatedDepartment.getId(), "Departamento atualizado com sucesso."));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(SimpleResponseUtils.error(null, "Erro ao atualizar o departamento: " + e.getMessage()));
         }
     }
 
