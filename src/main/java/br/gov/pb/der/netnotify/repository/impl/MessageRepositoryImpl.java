@@ -201,7 +201,8 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         predicates.add(cb.isNotNull(message.get(Message_.repeatIntervalMinutes)));
         LocalDateTime lastDateTimeOfToday = LocalDate.now().atTime(LocalTime.MAX);
         // Exemplo de filtro adicional até o fim do dia (evita variável não usada)
-        predicates.add(cb.and(cb.isNotNull(message.get(Message_.expireAt)), cb.lessThanOrEqualTo(message.get(Message_.expireAt), lastDateTimeOfToday)));
+        predicates.add(cb.and(cb.isNotNull(message.get(Message_.expireAt)),
+                cb.lessThanOrEqualTo(message.get(Message_.expireAt), lastDateTimeOfToday)));
 
         if (!predicates.isEmpty()) {
             cq.where(cb.and(predicates.toArray(new Predicate[0])));
@@ -260,10 +261,12 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 message.getLevel() != null ? message.getLevel().getId() : null,
                 message.getType() != null ? message.getType().getId() : null,
                 message.getDepartments() != null
-                ? message.getDepartments().stream().map(d -> d.getId()).toList()
-                : new ArrayList<>(),
+                        ? message.getDepartments().stream().map(d -> d.getId()).toList()
+                        : new ArrayList<>(),
                 message.getSendToSubdivisions(),
-                message.getExpireAt());
+                message.getExpireAt(),
+                message.getPublishedAt(),
+                message.getRepeatIntervalMinutes());
         return dto;
 
     }

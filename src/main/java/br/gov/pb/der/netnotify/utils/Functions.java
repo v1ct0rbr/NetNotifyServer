@@ -50,7 +50,8 @@ public class Functions {
         return str == null ? null : "%" + str.toLowerCase() + "%";
     }
 
-    
+    public static Boolean isNumberValid(Number number) {
+        return number != null && number.doubleValue() >= 0;
+    }
 
-        
 }

@@ -70,20 +70,19 @@ public class Message {
     @Column(name = "last_sent_at")
     private LocalDateTime lastSentAt;
 
+    @Column(name = "published_at")
+    private LocalDateTime publishedAt;
+
     @ManyToMany
-    @JoinTable(
-        name = "message_department",
-        joinColumns = @JoinColumn(name = "message_id"),
-        inverseJoinColumns = @JoinColumn(name = "department_id")
-    )
+    @JoinTable(name = "message_department", joinColumns = @JoinColumn(name = "message_id"), inverseJoinColumns = @JoinColumn(name = "department_id"))
     private List<Department> departments;
 
     @Column(name = "send_to_subdivisions")
     private Boolean sendToSubdivisions;
 
     public MessageResponseDto objectMapper() {
-        return new MessageResponseDto(  
-                this.id,              
+        return new MessageResponseDto(
+                this.id,
                 this.title,
                 this.content,
                 this.level != null ? this.level.getName() : null,
@@ -94,8 +93,7 @@ public class Message {
                 this.expireAt,
                 this.lastSentAt,
                 this.repeatIntervalMinutes,
-                this.sendToSubdivisions
-        );
+                this.sendToSubdivisions);
 
     }
 

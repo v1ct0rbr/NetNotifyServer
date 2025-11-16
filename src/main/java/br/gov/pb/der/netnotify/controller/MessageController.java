@@ -1,5 +1,6 @@
 package br.gov.pb.der.netnotify.controller;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -59,11 +60,12 @@ public class MessageController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(SimpleResponseUtils.error(null, "Mensagem não encontrada."));
         }
-        return ResponseEntity.ok(SimpleResponseUtils.success(message.objectMapper()));
+        return ResponseEntity
+                .ok(SimpleResponseUtils.success(message.objectMapper(), "Mensagem encontrada com sucesso."));
     }
 
     // parametros de url .... clone-message-id
-    @GetMapping(value = {"/", ""}, params = "clone-message-id")
+    @GetMapping(value = { "/", "" }, params = "clone-message-id")
     public ResponseEntity<MessageDto> getSimpleMessage(@RequestParam(name = "clone-message-id") UUID id) {
         MessageDto messageDto = messageService.findMessageDtoById(id);
         if (messageDto == null) {
@@ -77,10 +79,13 @@ public class MessageController {
     public ResponseEntity<SimpleResponseUtils<?>> saveMessage(@RequestBody @Valid MessageDto messageDto,
             BindingResult bindingResult) {
 
-        if (bindingResult.hasErrors()) {
+        Boolean isMessageValid = isMessageValid(messageDto, bindingResult);
+
+        if (!isMessageValid) {
             return ResponseEntity.badRequest()
                     .body(SimpleResponseUtils.error(null, Functions.errorStringfy(bindingResult)));
         }
+
         try {
             Message message = new Message();
             message.setTitle(messageDto.getTitle());
@@ -88,6 +93,10 @@ public class MessageController {
             message.setLevel(levelService.findById(messageDto.getLevel()));
             message.setType(messageTypeService.findById(messageDto.getType()));
             message.setUser(userService.getLoggedUser());
+            message.setSendToSubdivisions(messageDto.getSendToSubdivisions());
+            message.setExpireAt(messageDto.getExpireAt());
+            message.setPublishedAt(messageDto.getPublishedAt());
+            message.setRepeatIntervalMinutes(messageDto.getRepeatIntervalMinutes());
             message.setDepartments(messageDto.getDepartments().stream()
                     .map(deptId -> departmentService.findById(deptId))
                     .filter(dept -> dept != null)
@@ -131,6 +140,24 @@ public class MessageController {
         String msg = message.objectMapper().jsonStringfy();
         rabbitmqService.basicPublish(msg);
         return msg;
+    }
+
+    public boolean isMessageValid(MessageDto messageDto, BindingResult bindingResult) {
+        LocalDateTime now = LocalDateTime.now();
+
+        if (messageDto.getExpireAt() != null && messageDto.getExpireAt().isBefore(now)) {
+            bindingResult.rejectValue("expireAt", "Invalid", "A data de expiração deve ser no futuro.");
+        }
+        if (messageDto.getPublishedAt() != null && messageDto.getPublishedAt().isBefore(now)) {
+            bindingResult.rejectValue("publishedAt", "Invalid", "A data de publicação deve ser no futuro.");
+        }
+
+        if (messageDto.getExpireAt() != null && !Functions.isNumberValid(messageDto.getRepeatIntervalMinutes())) {
+            bindingResult.rejectValue("repeatIntervalMinutes", "Invalid",
+                    "O intervalo de repetição deve ser maior ou igual a zero.");
+        }
+
+        return !bindingResult.hasErrors();
     }
 
 }

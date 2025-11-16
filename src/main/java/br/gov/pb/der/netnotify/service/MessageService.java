@@ -1,6 +1,7 @@
 package br.gov.pb.der.netnotify.service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -50,6 +51,18 @@ public class MessageService implements AbstractService<Message, UUID> {
     @Override
     public List<Message> findAll() {
         return messageRepository.findAll();
+    }
+
+    public Long countTotalMessages() {
+        return messageRepository.countTotal();
+    }
+
+    public Map<String, Long> countTotalMessagesByLevel() {
+        return messageRepository.countTotalMessagesByLevel();
+    }
+
+    public Map<String, Long> countTotalMessagesByType() {
+        return messageRepository.countTotalMessagesByType();
     }
 
 }
