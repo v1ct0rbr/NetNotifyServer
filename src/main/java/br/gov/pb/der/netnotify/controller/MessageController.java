@@ -103,7 +103,9 @@ public class MessageController {
                     .toList());
 
             messageService.save(message);
-            sendNotification(message);
+            if (message.getPublishedAt() != null && !message.getPublishedAt().isAfter(LocalDateTime.now())) {
+                sendNotification(message);
+            }
             return ResponseEntity.ok(SimpleResponseUtils.success(message.getId(), "Mensagem salva com sucesso."));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

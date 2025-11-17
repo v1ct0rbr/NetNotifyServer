@@ -51,7 +51,7 @@ public class SecurityConfiguration {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers("/messages/**").hasAnyRole(roleUser, roleAdmin)
+                .requestMatchers("/messages/**", "/dashboard/**").hasAnyRole(roleUser, roleAdmin)
                 .requestMatchers("/aux/**").authenticated()
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/profile/**").authenticated()

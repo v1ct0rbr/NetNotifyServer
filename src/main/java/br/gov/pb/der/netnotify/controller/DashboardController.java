@@ -1,16 +1,17 @@
 package br.gov.pb.der.netnotify.controller;
 
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.gov.pb.der.netnotify.dto.CountByItemDto;
 import br.gov.pb.der.netnotify.dto.DashboardDataDto;
-import br.gov.pb.der.netnotify.service.LevelService;
 import br.gov.pb.der.netnotify.service.MessageService;
-import br.gov.pb.der.netnotify.service.MessageTypeService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -18,23 +19,36 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class DashboardController {
 
-    private MessageService messageService;
-
-    private LevelService levelService;
-
-    private MessageTypeService messageTypeService;
-
-    @GetMapping(value = { "", "/" }, produces = { "application/json" })
+    private final MessageService messageService;
+   
+    @GetMapping(value = { "", "/summary" }, produces = { "application/json" })
     private ResponseEntity<?> getDashboardData() {
         Long totalMessages = messageService.countTotalMessages();
         Map<String, Long> totalMessagesByLevel = messageService.countTotalMessagesByLevel();
         Map<String, Long> totalMessagesByType = messageService.countTotalMessagesByType();
 
+        // Convert Maps to Lists of CountByItemDto, filtering out null keys
+        List<CountByItemDto> levelCounts = totalMessagesByLevel.entrySet().stream()
+            .filter(entry -> entry.getKey() != null && entry.getValue() != null)
+            .map(entry -> {
+                Long count = entry.getValue() instanceof Long ? (Long) entry.getValue() : Long.parseLong(entry.getValue().toString());
+                return new CountByItemDto(entry.getKey(), count);
+            })
+            .collect(Collectors.toList());
+
+        List<CountByItemDto> typeCounts = totalMessagesByType.entrySet().stream()
+            .filter(entry -> entry.getKey() != null && entry.getValue() != null)
+            .map(entry -> {
+                Long count = entry.getValue() instanceof Long ? (Long) entry.getValue() : Long.parseLong(entry.getValue().toString());
+                return new CountByItemDto(entry.getKey(), count);
+            })
+            .collect(Collectors.toList());
+
         // Construct and return the dashboard data response
         DashboardDataDto dashboardData = new DashboardDataDto();
         dashboardData.setTotalMessages(totalMessages);
-        dashboardData.setTotalMessagesByLevel(totalMessagesByLevel);
-        dashboardData.setTotalMessagesByType(totalMessagesByType);
+        dashboardData.setTotalMessagesByLevel(levelCounts);
+        dashboardData.setTotalMessagesByType(typeCounts);
 
         return ResponseEntity.ok(dashboardData);
 

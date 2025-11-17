@@ -2,6 +2,8 @@ package br.gov.pb.der.netnotify.service;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -139,6 +141,7 @@ public class RabbitmqService {
         }
     }
 
+
     /**
      * Verifica se a conexão com RabbitMQ está funcionando
      */
@@ -148,6 +151,70 @@ public class RabbitmqService {
         } catch (Exception e) {
             System.err.println("RabbitMQ connection health check failed: " + e.getMessage());
             return false;
+        }
+    }
+
+    /**
+     * Lista todas as queues associadas ao canal atual (exchange)
+     * Retorna uma lista de nomes de queues vinculadas ao exchange
+     */
+    public List<String> listQueuesForCurrentChannel() {
+        List<String> queues = new ArrayList<>();
+
+        try (Connection connection = rabbitConnectionFactory().newConnection();
+                Channel channel = connection.createChannel()) {
+
+            // Declara o exchange para garantir que existe
+            channel.exchangeDeclare(fanoutExchange.getName(), fanoutExchange.getType(), fanoutExchange.isDurable());
+
+            // Declara uma fila anônima temporária para obter informações de binding
+            String tempQueueName = channel.queueDeclare().getQueue();
+
+            // Faz bind da fila temporária ao exchange
+            channel.queueBind(tempQueueName, fanoutExchange.getName(), "");
+
+            // Tenta obter informações das queues via passive declaration
+            // Nota: A RabbitMQ Java Client não fornece um método direto para listar queues de um exchange
+            // Então usamos a abordagem de tentar conectar a queues conhecidas
+
+            try {
+                // Tenta acessar a fila principal configurada
+                com.rabbitmq.client.AMQP.Queue.DeclareOk declareOk = channel.queueDeclarePassive(queueName);
+                if (declareOk != null) {
+                    queues.add(queueName);
+                    System.out.println("Queue found: " + queueName + " (messageCount: " + declareOk.getMessageCount() + ")");
+                }
+            } catch (IOException e) {
+                System.out.println("Queue not found: " + queueName);
+            }
+
+            // Remove a fila temporária
+            channel.queueDelete(tempQueueName);
+
+            return queues;
+
+        } catch (IOException | TimeoutException e) {
+            System.err.println("Error listing queues: " + e.getMessage());
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * Obtém informações detalhadas sobre as queues do canal atual
+     * Inclui contagem de mensagens e status de consumer
+     */
+    public String getQueueDetails(String queueName) {
+        try (Connection connection = rabbitConnectionFactory().newConnection();
+                Channel channel = connection.createChannel()) {
+
+            com.rabbitmq.client.AMQP.Queue.DeclareOk declareOk = channel.queueDeclarePassive(queueName);
+
+            return String.format("Queue: %s, Messages: %d, Consumers: %d",
+                    queueName, declareOk.getMessageCount(), declareOk.getConsumerCount());
+
+        } catch (IOException | TimeoutException e) {
+            return "Error getting queue details: " + e.getMessage();
         }
     }
 }

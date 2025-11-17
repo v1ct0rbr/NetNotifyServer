@@ -62,7 +62,8 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 message.get(Message_.expireAt),
                 message.get(Message_.lastSentAt),
                 message.get(Message_.repeatIntervalMinutes),
-                message.get(Message_.sendToSubdivisions)));
+                message.get(Message_.sendToSubdivisions),
+                message.get(Message_.publishedAt)));
         // Filtros dinâmicos
         List<Predicate> predicates = new ArrayList<>();
         if (filter != null) {
@@ -194,7 +195,8 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 message.get(Message_.expireAt),
                 message.get(Message_.lastSentAt),
                 message.get(Message_.repeatIntervalMinutes),
-                message.get(Message_.sendToSubdivisions)));
+                message.get(Message_.sendToSubdivisions),
+                message.get(Message_.publishedAt)));
         // Filtros dinâmicos
 
         List<Predicate> predicates = new ArrayList<>();
@@ -212,10 +214,13 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         List<MessageResponseDto> result = query.getResultList();
         List<MessageResponseDto> filteredResult = new ArrayList<>();
         for (MessageResponseDto dto : result) {
+            if(dto.getPublishedAt() != null && dto.getPublishedAt().isAfter(LocalDateTime.now())) {
+                continue;
+            }
 
             if (dto.getLastSentAt() != null && dto.getRepeatIntervalMinutes() != null) {
                 LocalDateTime nextSendTime = dto.getLastSentAt().plusMinutes(dto.getRepeatIntervalMinutes());
-                if (nextSendTime.isBefore(LocalDateTime.now()) || nextSendTime.isEqual(LocalDateTime.now())) {
+                if (nextSendTime.isAfter(LocalDateTime.now()) || nextSendTime.isEqual(LocalDateTime.now())) {
                     feedDeparmentsToMessageResponseDto(dto);
                     filteredResult.add(dto);
 

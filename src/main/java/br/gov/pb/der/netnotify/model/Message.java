@@ -93,7 +93,8 @@ public class Message {
                 this.expireAt,
                 this.lastSentAt,
                 this.repeatIntervalMinutes,
-                this.sendToSubdivisions);
+                this.sendToSubdivisions,
+                this.publishedAt);
 
     }
 

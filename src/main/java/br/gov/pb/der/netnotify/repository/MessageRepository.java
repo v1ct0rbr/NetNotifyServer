@@ -1,9 +1,10 @@
 package br.gov.pb.der.netnotify.repository;
 
-import java.util.Map;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
@@ -20,10 +21,14 @@ public interface MessageRepository extends JpaRepository<Message, UUID>, Message
 
     public Long countByTypeId(Integer typeId);
 
-    @Query("SELECT m.level.name, COUNT(m) FROM Message m GROUP BY m.level.name")
-    public Map<String, Long> countTotalMessagesByLevel();
+    @Query("SELECT l.name, COUNT(m) FROM Message m INNER JOIN m.level l GROUP BY l.name")
+    public List<Object[]> countTotalMessagesByLevel();
 
-    @Query("SELECT m.type.name, COUNT(m) FROM Message m GROUP BY m.type.name")
-    public Map<String, Long> countTotalMessagesByType();
+    @Query("SELECT t.name, COUNT(m) FROM Message m INNER JOIN m.type t GROUP BY t.name")
+    public List<Object[]> countTotalMessagesByType();
+
+    @Query("UPDATE Message m SET m.lastSentAt = :lastSentAt WHERE m.id = :id")
+    @Modifying    
+    public void updateLastSentAtById(UUID id, java.time.LocalDateTime lastSentAt);
 
 }
