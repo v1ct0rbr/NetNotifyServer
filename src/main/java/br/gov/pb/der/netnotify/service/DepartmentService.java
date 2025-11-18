@@ -29,6 +29,10 @@ public class DepartmentService {
         return departmentRepository.findById(id).orElse(null);
     }
 
+    public List<Department> findByParentDepartmentId(java.util.UUID parentId) {
+        return departmentRepository.findByParentDepartmentId(parentId);
+    }
+
     public Department saveFromDto(DepartmentDto dto) {
         Department department = new Department();
 

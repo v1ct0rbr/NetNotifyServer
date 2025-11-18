@@ -217,4 +217,147 @@ public class RabbitmqService {
             return "Error getting queue details: " + e.getMessage();
         }
     }
+
+    /**
+     * Publica mensagem usando um routing key específico (útil para Topic Exchange)
+     * Permite enviar mensagens para departamentos específicos
+     * 
+     * @param message Conteúdo da mensagem
+     * @param customRoutingKey Routing key customizado (ex: "department.financeiro", "department.rh")
+     */
+    public void publishWithRoutingKey(String message, String customRoutingKey) {
+        try (Connection connection = rabbitConnectionFactory().newConnection();
+                Channel channel = connection.createChannel()) {
+
+            // Para Topic Exchange
+            channel.exchangeDeclare(fanoutExchange.getName(), "topic", fanoutExchange.isDurable());
+
+            channel.basicPublish(fanoutExchange.getName(), customRoutingKey, null, 
+                    message.getBytes(StandardCharsets.UTF_8));
+            System.out.println(" [x] Sent to '" + customRoutingKey + "': '" + message + "'");
+
+        } catch (IOException | TimeoutException e) {
+            System.err.println("Error publishing message with routing key: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Publica mensagem para um departamento específico
+     * 
+     * @param message Conteúdo da mensagem
+     * @param departmentName Nome do departamento
+     */
+    public void publishToDepartment(String message, String departmentName) {
+        String routingKeyForDept = String.format("department.%s", 
+                departmentName.toLowerCase().replace(" ", "_"));
+        publishWithRoutingKey(message, routingKeyForDept);
+    }
+
+    /**
+     * Publica mensagem para múltiplos departamentos
+     * 
+     * @param message Conteúdo da mensagem
+     * @param departmentIds Lista de IDs de departamentos
+     */
+    public void publishToDepartments(String message, List<String> departmentNames) {
+        for (String deptName : departmentNames) {
+            String routingKey = String.format("department.%s", 
+                    deptName.toLowerCase().replace(" ", "_"));
+            publishWithRoutingKey(message, routingKey);
+        }
+    }
+
+    /**
+     * Publica mensagem para todos os departamentos (wildcard)
+     * Usa "department.#" para alcançar todos os padrões de departamento
+     * 
+     * @param message Conteúdo da mensagem
+     */
+    public void publishToAllDepartments(String message) {
+        publishWithRoutingKey(message, "department.#");
+    }
+
+    /**
+     * Publica mensagem para ABSOLUTAMENTE TODOS (departamentos + broadcast)
+     * 
+     * @param message Conteúdo da mensagem
+     */
+    public void publishToEveryone(String message) {
+        // Envia para todos os departamentos
+        publishWithRoutingKey(message, "department.#");
+        // Envia broadcast geral
+        publishWithRoutingKey(message, "broadcast.#");
+    }
+
+    /**
+     * Cria uma fila para receber mensagens de um departamento específico
+     * 
+     * @param departmentName Nome do departamento
+     * @return Nome da fila criada
+     */
+    public String createDepartmentQueue(String departmentName) {
+        String deptNameFormatted = departmentName.toLowerCase().replace(" ", "_");
+        String queueNameForDept = String.format("queue_department_%s", deptNameFormatted);
+        String routingPatternForDept = String.format("department.%s", deptNameFormatted);
+
+        try (Connection connection = rabbitConnectionFactory().newConnection();
+                Channel channel = connection.createChannel()) {
+
+            // Declara exchange como Topic
+            channel.exchangeDeclare(fanoutExchange.getName(), "topic", fanoutExchange.isDurable());
+
+            // Declara fila para o departamento
+            channel.queueDeclare(queueNameForDept, true, false, false, null);
+
+            // Faz bind com routing pattern específico do departamento
+            channel.queueBind(queueNameForDept, fanoutExchange.getName(), routingPatternForDept);
+
+            System.out.println("Created queue: " + queueNameForDept + 
+                    ", listening to: " + routingPatternForDept);
+            return queueNameForDept;
+
+        } catch (IOException | TimeoutException e) {
+            System.err.println("Error creating department queue: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * Consome mensagens de uma fila de departamento específico
+     * 
+     * @param queueName Nome da fila do departamento
+     * @param timeoutMillis Tempo máximo de espera
+     * @return Mensagem recebida ou null se timeout
+     */
+    public String consumeFromDepartmentQueue(String queueName, long timeoutMillis) {
+        BlockingQueue<String> messageQueue = new ArrayBlockingQueue<>(1);
+
+        try (Connection connection = rabbitConnectionFactory().newConnection();
+                Channel channel = connection.createChannel()) {
+
+            String consumerTag = channel.basicConsume(queueName, true,
+                    (tag, delivery) -> {
+                        String msg = new String(delivery.getBody(), StandardCharsets.UTF_8);
+                        System.out.println(" [x] Received from department queue '" + queueName + "': '" + msg + "'");
+                        messageQueue.offer(msg);
+                    },
+                    tag -> System.out.println("Consumer cancelled: " + tag));
+
+            String message = messageQueue.poll(timeoutMillis, TimeUnit.MILLISECONDS);
+
+            if (consumerTag != null) {
+                channel.basicCancel(consumerTag);
+            }
+
+            return message;
+
+        } catch (IOException | TimeoutException | InterruptedException e) {
+            System.err.println("Error consuming from department queue: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
 }

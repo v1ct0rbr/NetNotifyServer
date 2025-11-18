@@ -18,4 +18,6 @@ public interface DepartmentRepository extends JpaRepository<Department, UUID> {
     @Query("UPDATE Department d SET d.parentDepartment = null WHERE d.parentDepartment.id = :id")
     @Modifying
     public void setNullParentDepartmentById(UUID id);
+
+    public List<Department> findByParentDepartmentId(UUID parentId);
 }

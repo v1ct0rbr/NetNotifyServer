@@ -103,7 +103,7 @@ public class MessageController {
                     .toList());
 
             messageService.save(message);
-            if (message.getPublishedAt() != null && !message.getPublishedAt().isAfter(LocalDateTime.now())) {
+            if (message.getPublishedAt() == null || (message.getPublishedAt() != null && !message.getPublishedAt().isAfter(LocalDateTime.now()))) {
                 sendNotification(message);
             }
             return ResponseEntity.ok(SimpleResponseUtils.success(message.getId(), "Mensagem salva com sucesso."));

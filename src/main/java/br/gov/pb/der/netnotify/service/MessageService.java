@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import br.gov.pb.der.netnotify.dto.MessageDto;
 import br.gov.pb.der.netnotify.filter.MessageFilter;
+import br.gov.pb.der.netnotify.model.Department;
 import br.gov.pb.der.netnotify.model.Message;
 import br.gov.pb.der.netnotify.repository.MessageRepository;
 import br.gov.pb.der.netnotify.response.MessageResponseDto;
@@ -22,6 +23,8 @@ import lombok.RequiredArgsConstructor;
 public class MessageService implements AbstractService<Message, UUID> {
 
     private final MessageRepository messageRepository;
+
+    private final DepartmentService departmentService;
 
     @Lazy
     private final RabbitmqService rabbitmqService;
@@ -66,16 +69,14 @@ public class MessageService implements AbstractService<Message, UUID> {
         return messageRepository.countTotalMessagesByLevel().stream()
                 .collect(Collectors.toMap(
                         row -> (String) row[0],
-                        row -> ((Number) row[1]).longValue()
-                ));
+                        row -> ((Number) row[1]).longValue()));
     }
 
     public Map<String, Long> countTotalMessagesByType() {
         return messageRepository.countTotalMessagesByType().stream()
                 .collect(Collectors.toMap(
                         row -> (String) row[0],
-                        row -> ((Number) row[1]).longValue()
-                ));
+                        row -> ((Number) row[1]).longValue()));
     }
 
     public void sendScheduledMessages() {
@@ -89,6 +90,26 @@ public class MessageService implements AbstractService<Message, UUID> {
 
     public String sendNotification(Message message) {
         String msg = message.objectMapper().jsonStringfy();
+
+        List<Department> departmentList = message.getDepartments();
+        if (departmentList.isEmpty()) {
+            rabbitmqService.publishToAllDepartments(msg);
+        } else {
+
+            if (message.getSendToSubdivisions() != null && message.getSendToSubdivisions()) {
+                for (Department dept : departmentList) {
+                    List<Department> subdivisions = departmentService.findByParentDepartmentId(dept.getId());
+                    for (Department subDept : subdivisions) {
+                        String subDeptName = subDept.getName().toLowerCase().replace(" ", "_");
+                        rabbitmqService.publishToDepartment(msg, subDeptName);
+                    }
+                }
+            }
+            rabbitmqService.publishToDepartments(msg, departmentList.stream()
+                    .map(dept -> dept.getName().toLowerCase().replace(" ", "_"))
+                    .collect(Collectors.toList()));
+        }
+
         rabbitmqService.basicPublish(msg);
         return msg;
     }
