@@ -92,7 +92,8 @@ public class MessageController {
             message.setContent(messageDto.getContent());
             message.setLevel(levelService.findById(messageDto.getLevel()));
             message.setType(messageTypeService.findById(messageDto.getType()));
-            message.setUser(userService.getLoggedUser());
+            // Garante que o usuário local exista (cria se ainda não sincronizado)
+            message.setUser(userService.getOrCreateUser());
             message.setSendToSubdivisions(messageDto.getSendToSubdivisions());
             message.setExpireAt(messageDto.getExpireAt());
             message.setPublishedAt(messageDto.getPublishedAt());
@@ -105,7 +106,7 @@ public class MessageController {
             messageService.save(message);
             if (message.getPublishedAt() == null
                     || (message.getPublishedAt() != null && !message.getPublishedAt().isAfter(LocalDateTime.now()))) {
-                sendNotification(message);
+                messageService.sendNotification(message);
             }
             return ResponseEntity.ok(SimpleResponseUtils.success(message.getId(), "Mensagem salva com sucesso."));
         } catch (Exception e) {
@@ -137,15 +138,6 @@ public class MessageController {
         }
         messageService.delete(message);
         return ResponseEntity.ok(SimpleResponseUtils.success(null, "Mensagem deletada com sucesso."));
-    }
-
-    public String sendNotification(Message message) {
-        String msg = message.objectMapper().jsonStringfy();
-        rabbitmqService.basicPublish(msg);
-        message.setLastSentAt(LocalDateTime.now());
-        messageService.save(message);
-
-        return msg;
     }
 
     public boolean isMessageValid(MessageDto messageDto, BindingResult bindingResult) {

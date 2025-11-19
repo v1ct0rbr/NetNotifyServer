@@ -31,6 +31,6 @@ public interface MessageRepository extends JpaRepository<Message, UUID>, Message
     @Query("UPDATE Message m SET m.lastSentAt = :lastSentAt WHERE m.id = :id")
     @Modifying
     @Transactional
-    public void updateLastSentAtById(UUID id, java.time.LocalDateTime lastSentAt);
+    public Integer updateLastSentAtById(UUID id, java.time.LocalDateTime lastSentAt);
 
 }

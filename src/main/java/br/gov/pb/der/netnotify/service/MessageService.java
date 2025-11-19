@@ -84,7 +84,7 @@ public class MessageService implements AbstractService<Message, UUID> {
         for (MessageResponseDto messageDto : messagesToSend) {
             Message message = findById(messageDto.getId());
             sendNotification(message);
-            messageRepository.updateLastSentAtById(message.getId(), java.time.LocalDateTime.now());
+            
         }
     }
 
@@ -93,10 +93,16 @@ public class MessageService implements AbstractService<Message, UUID> {
 
         List<Department> departmentList = message.getDepartments();
         if (departmentList.isEmpty()) {
-            rabbitmqService.publishToAllDepartments(msg);
+            // Broadcast geral: somente para quem escuta broadcast.*
+            System.out.println("[Routing] Broadcast geral messageId=" + message.getId());
+            rabbitmqService.basicPublish(msg);
         } else {
+            // Segmentado por departamentos (e opcionalmente subdivisões)
+            System.out.println("[Routing] Segmentado messageId=" + message.getId() + " departamentos=" +
+                    departmentList.stream().map(Department::getName).collect(Collectors.joining(",")) +
+                    " sendToSubdivisions=" + message.getSendToSubdivisions());
 
-            if (message.getSendToSubdivisions() != null && message.getSendToSubdivisions()) {
+            if (Boolean.TRUE.equals(message.getSendToSubdivisions())) {
                 for (Department dept : departmentList) {
                     List<Department> subdivisions = departmentService.findByParentDepartmentId(dept.getId());
                     for (Department subDept : subdivisions) {
@@ -109,9 +115,13 @@ public class MessageService implements AbstractService<Message, UUID> {
                     .map(dept -> dept.getName().toLowerCase().replace(" ", "_"))
                     .collect(Collectors.toList()));
         }
+        messageRepository.updateLastSentAtById(message.getId(), java.time.LocalDateTime.now());
 
-        rabbitmqService.basicPublish(msg);
         return msg;
+    }
+
+    public Integer updateLastSentAtById(UUID id, java.time.LocalDateTime lastSentAt) {
+        return messageRepository.updateLastSentAtById(id, lastSentAt);
     }
 
 }

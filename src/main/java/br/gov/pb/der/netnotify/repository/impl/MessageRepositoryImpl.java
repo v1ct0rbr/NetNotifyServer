@@ -201,10 +201,20 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
 
         List<Predicate> predicates = new ArrayList<>();
         predicates.add(cb.isNotNull(message.get(Message_.repeatIntervalMinutes)));
+        LocalDateTime now = LocalDateTime.now();
         LocalDateTime lastDateTimeOfToday = LocalDate.now().atTime(LocalTime.MAX);
         // Exemplo de filtro adicional até o fim do dia (evita variável não usada)
-        predicates.add(cb.and(cb.isNotNull(message.get(Message_.expireAt)),
-                cb.lessThanOrEqualTo(message.get(Message_.expireAt), lastDateTimeOfToday)));
+
+        predicates.add(cb.isNull(message.get(Message_.lastSentAt)));
+        predicates.add(
+                cb.or
+                    (
+                        cb.isNull(message.get(Message_.lastSentAt)),
+                        cb.isNull(message.get(Message_.expireAt)), 
+                        cb.and(cb.isNotNull(message.get(Message_.expireAt))), 
+                        cb.greaterThan(message.get(Message_.expireAt), now)
+                    )
+                );
 
         if (!predicates.isEmpty()) {
             cq.where(cb.and(predicates.toArray(new Predicate[0])));
@@ -213,10 +223,7 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         TypedQuery<MessageResponseDto> query = entityManager.createQuery(cq);
         List<MessageResponseDto> result = query.getResultList();
         List<MessageResponseDto> filteredResult = new ArrayList<>();
-        for (MessageResponseDto dto : result) {
-            if(dto.getPublishedAt() != null && dto.getPublishedAt().isAfter(LocalDateTime.now())) {
-                continue;
-            }
+        for (MessageResponseDto dto : result) {           
 
             if (dto.getLastSentAt() != null && dto.getRepeatIntervalMinutes() != null) {
                 LocalDateTime nextSendTime = dto.getLastSentAt().plusMinutes(dto.getRepeatIntervalMinutes());

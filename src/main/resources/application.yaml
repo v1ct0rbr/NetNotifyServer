@@ -1,5 +1,23 @@
 server:
   port: ${SERVER_PORT:8080}
+  
+# ============================================================================
+# MANAGEMENT ENDPOINTS - Spring Boot Actuator (para VS Code Dashboard)
+# ============================================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,env,configprops,beans,mappings,threaddump,heapdump
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+  metrics:
+    enable:
+      jvm: true
+      process: true
+      system: true
 
 spring:
   rabbitmq:
