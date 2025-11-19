@@ -1,8 +1,6 @@
 package br.gov.pb.der.netnotify.repository.impl;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -202,19 +200,13 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         List<Predicate> predicates = new ArrayList<>();
         predicates.add(cb.isNotNull(message.get(Message_.repeatIntervalMinutes)));
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime lastDateTimeOfToday = LocalDate.now().atTime(LocalTime.MAX);
         // Exemplo de filtro adicional até o fim do dia (evita variável não usada)
-
-        predicates.add(cb.isNull(message.get(Message_.lastSentAt)));
         predicates.add(
-                cb.or
-                    (
-                        cb.isNull(message.get(Message_.lastSentAt)),
-                        cb.isNull(message.get(Message_.expireAt)), 
-                        cb.and(cb.isNotNull(message.get(Message_.expireAt))), 
-                        cb.greaterThan(message.get(Message_.expireAt), now)
-                    )
-                );
+                cb.and(
+                        cb.or(
+                                cb.isNull(message.get(Message_.lastSentAt)),
+                                cb.and(cb.isNotNull(message.get(Message_.expireAt)),
+                                        cb.greaterThan(message.get(Message_.expireAt), now)))));
 
         if (!predicates.isEmpty()) {
             cq.where(cb.and(predicates.toArray(new Predicate[0])));
@@ -223,23 +215,19 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         TypedQuery<MessageResponseDto> query = entityManager.createQuery(cq);
         List<MessageResponseDto> result = query.getResultList();
         List<MessageResponseDto> filteredResult = new ArrayList<>();
-        for (MessageResponseDto dto : result) {           
-
+        for (MessageResponseDto dto : result) {
             if (dto.getLastSentAt() != null && dto.getRepeatIntervalMinutes() != null) {
                 LocalDateTime nextSendTime = dto.getLastSentAt().plusMinutes(dto.getRepeatIntervalMinutes());
                 if (nextSendTime.isAfter(LocalDateTime.now()) || nextSendTime.isEqual(LocalDateTime.now())) {
                     feedDeparmentsToMessageResponseDto(dto);
                     filteredResult.add(dto);
-
                 }
             } else if (dto.getLastSentAt() == null) {
                 // Se nunca foi enviado, considerar para reenvio
                 feedDeparmentsToMessageResponseDto(dto);
                 filteredResult.add(dto);
             }
-
         }
-
         return filteredResult;
     }
 
