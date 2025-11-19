@@ -3,6 +3,7 @@ package br.gov.pb.der.netnotify.service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
@@ -46,7 +47,8 @@ public class UserService {
      * Obtém ou cria um usuário local baseado nos dados do Keycloak
      */
     public User getOrCreateUser(KeycloakUser keycloakUser) {
-        Optional<User> existingUser = userRepository.findById(keycloakUser.getId());
+        UUID userId = UUID.fromString(keycloakUser.getId());
+        Optional<User> existingUser = userRepository.findById(userId);
 
         if (existingUser.isPresent()) {
             // Atualiza dados do usuário existente
@@ -67,7 +69,8 @@ public class UserService {
             throw new IllegalStateException("Usuário não está autenticado no Keycloak");
         }
 
-        return userRepository.findById(keycloakUser.getId())
+        UUID userId = UUID.fromString(keycloakUser.getId());
+        return userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuário local não encontrado"));
     }
 
@@ -77,8 +80,9 @@ public class UserService {
     private User createUserFromKeycloak(KeycloakUser keycloakUser) {
         log.info("Criando novo usuário local para: {}", keycloakUser.getUsername());
 
+        UUID userId = UUID.fromString(keycloakUser.getId());
         User user = User.builder()
-                .id(keycloakUser.getId())
+                .id(userId)
                 .username(keycloakUser.getUsername())
                 .email(keycloakUser.getEmail())
                 .fullName(keycloakUser.getFullName())
@@ -125,7 +129,7 @@ public class UserService {
      * Busca usuário por ID do Keycloak
      */
     @Transactional(readOnly = true)
-    public Optional<User> findById(String keycloakId) {
+    public Optional<User> findById(UUID keycloakId) {
         return userRepository.findById(keycloakId);
     }
 
@@ -148,7 +152,7 @@ public class UserService {
     /**
      * Atualiza preferências do usuário
      */
-    public User updateUserPreferences(String keycloakId, String preferences,
+    public User updateUserPreferences(UUID keycloakId, String preferences,
             User.Theme theme, String language, String timezone) {
         User user = userRepository.findById(keycloakId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
@@ -164,7 +168,7 @@ public class UserService {
     /**
      * Desativa usuário
      */
-    public void deactivateUser(String keycloakId) {
+    public void deactivateUser(UUID keycloakId) {
         User user = userRepository.findById(keycloakId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
 
@@ -177,7 +181,7 @@ public class UserService {
     /**
      * Reativa usuário
      */
-    public void activateUser(String keycloakId) {
+    public void activateUser(UUID keycloakId) {
         User user = userRepository.findById(keycloakId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
 

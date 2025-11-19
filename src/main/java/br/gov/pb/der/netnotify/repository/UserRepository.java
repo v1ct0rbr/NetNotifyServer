@@ -3,6 +3,7 @@ package br.gov.pb.der.netnotify.repository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -16,7 +17,7 @@ import br.gov.pb.der.netnotify.model.User;
  * O ID do usuário corresponde diretamente ao ID do Keycloak (UUID)
  */
 @Repository
-public interface UserRepository extends JpaRepository<User, String> {
+public interface UserRepository extends JpaRepository<User, UUID> {
 
     /**
      * Busca usuário pelo username

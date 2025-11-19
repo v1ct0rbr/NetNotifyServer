@@ -2,6 +2,7 @@ package br.gov.pb.der.netnotify.model;
 
 import java.time.LocalDateTime;
 import java.util.Set;
+import java.util.UUID;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -42,8 +43,8 @@ public class User {
      * Este é o campo que faz a ligação com o Keycloak
      */
     @Id
-    @Column(name = "id", updatable = false, nullable = false)
-    private String id; // ID vem diretamente do Keycloak, não é gerado automaticamente
+    @Column(name = "id", updatable = false, nullable = false, columnDefinition = "UUID")
+    private UUID id; // ID vem diretamente do Keycloak (UUID), não é gerado automaticamente
 
     /**
      * Nome de usuário (sincronizado com Keycloak)

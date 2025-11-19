@@ -1,6 +1,6 @@
 package br.gov.pb.der.netnotify.controller;
 
-import org.springframework.amqp.core.FanoutExchange;
+import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -14,16 +14,16 @@ import br.gov.pb.der.netnotify.model.Message;
 public class NotificationController {
 
     private final RabbitTemplate rabbitTemplate;
-    private final FanoutExchange fanoutExchange;
+    private final TopicExchange fanoutExchange;
 
-    public NotificationController(RabbitTemplate rabbitTemplate, FanoutExchange fanoutExchange) {
+    public NotificationController(RabbitTemplate rabbitTemplate, TopicExchange fanoutExchange) {
         this.rabbitTemplate = rabbitTemplate;
         this.fanoutExchange = fanoutExchange;
     }
 
     @PostMapping
     public String sendNotification(@RequestBody Message message) {
-        rabbitTemplate.convertAndSend(fanoutExchange.getName(), "", message);
+        rabbitTemplate.convertAndSend(fanoutExchange.getName(), "broadcast.general", message);
         return "Mensagem enviada: " + message;
     }
 }

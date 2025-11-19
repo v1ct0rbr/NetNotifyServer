@@ -103,7 +103,8 @@ public class MessageController {
                     .toList());
 
             messageService.save(message);
-            if (message.getPublishedAt() == null || (message.getPublishedAt() != null && !message.getPublishedAt().isAfter(LocalDateTime.now()))) {
+            if (message.getPublishedAt() == null
+                    || (message.getPublishedAt() != null && !message.getPublishedAt().isAfter(LocalDateTime.now()))) {
                 sendNotification(message);
             }
             return ResponseEntity.ok(SimpleResponseUtils.success(message.getId(), "Mensagem salva com sucesso."));
@@ -141,6 +142,9 @@ public class MessageController {
     public String sendNotification(Message message) {
         String msg = message.objectMapper().jsonStringfy();
         rabbitmqService.basicPublish(msg);
+        message.setLastSentAt(LocalDateTime.now());
+        messageService.save(message);
+
         return msg;
     }
 

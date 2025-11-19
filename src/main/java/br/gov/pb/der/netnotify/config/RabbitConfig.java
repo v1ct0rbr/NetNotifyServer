@@ -2,7 +2,7 @@ package br.gov.pb.der.netnotify.config;
 
 import javax.annotation.PostConstruct;
 
-import org.springframework.amqp.core.FanoutExchange;
+import org.springframework.amqp.core.TopicExchange;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitConfig {
 
-    @Value("${spring.rabbitmq.exchange:${RABBITMQ_EXCHANGE:fannout}}")
+    @Value("${spring.rabbitmq.exchange:${RABBITMQ_EXCHANGE:netnotify_topic}}")
     private String exchangeName;
 
     @Value("${spring.rabbitmq.queue:${RABBITMQ_QUEUE:notification_queue}}")
@@ -23,8 +23,8 @@ public class RabbitConfig {
     private boolean exchangeDurable;
 
     @Bean
-    public FanoutExchange fanoutExchange() {
-        return new FanoutExchange(exchangeName, exchangeDurable, false);
+    public TopicExchange fanoutExchange() {
+        return new TopicExchange(exchangeName, exchangeDurable, false);
     }
 
     @Bean

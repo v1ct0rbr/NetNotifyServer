@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import br.gov.pb.der.netnotify.model.Message;
 import br.gov.pb.der.netnotify.repository.custom.MessageRepositoryCustom;
@@ -28,7 +29,8 @@ public interface MessageRepository extends JpaRepository<Message, UUID>, Message
     public List<Object[]> countTotalMessagesByType();
 
     @Query("UPDATE Message m SET m.lastSentAt = :lastSentAt WHERE m.id = :id")
-    @Modifying    
+    @Modifying
+    @Transactional
     public void updateLastSentAtById(UUID id, java.time.LocalDateTime lastSentAt);
 
 }

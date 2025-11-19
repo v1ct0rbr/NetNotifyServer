@@ -1,2 +1,0 @@
-ALTER TABLE message
-ADD COLUMN published_at TIMESTAMP;
