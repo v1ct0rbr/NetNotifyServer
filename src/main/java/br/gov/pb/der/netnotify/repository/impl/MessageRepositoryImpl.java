@@ -217,13 +217,15 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         List<MessageResponseDto> filteredResult = new ArrayList<>();
         for (MessageResponseDto dto : result) {
             if (dto.getLastSentAt() != null && dto.getRepeatIntervalMinutes() != null) {
+                // Calcula o próximo horário de envio
                 LocalDateTime nextSendTime = dto.getLastSentAt().plusMinutes(dto.getRepeatIntervalMinutes());
-                if (nextSendTime.isAfter(LocalDateTime.now()) || nextSendTime.isEqual(LocalDateTime.now())) {
+                // Se o próximo envio é no passado ou agora, a mensagem está pronta para reenvio
+                if (nextSendTime.isBefore(now) || nextSendTime.isEqual(now)) {
                     feedDeparmentsToMessageResponseDto(dto);
                     filteredResult.add(dto);
                 }
             } else if (dto.getLastSentAt() == null) {
-                // Se nunca foi enviado, considerar para reenvio
+                // Se nunca foi enviado, considerar para reenvio imediato
                 feedDeparmentsToMessageResponseDto(dto);
                 filteredResult.add(dto);
             }
