@@ -84,7 +84,7 @@ public class MessageService implements AbstractService<Message, UUID> {
         for (MessageResponseDto messageDto : messagesToSend) {
             Message message = findById(messageDto.getId());
             sendNotification(message);
-            
+
         }
     }
 
@@ -106,6 +106,9 @@ public class MessageService implements AbstractService<Message, UUID> {
                 for (Department dept : departmentList) {
                     List<Department> subdivisions = departmentService.findByParentDepartmentId(dept.getId());
                     for (Department subDept : subdivisions) {
+                        if (departmentList.contains(subDept)) {
+                            continue; // Já está na lista principal
+                        }
                         String subDeptName = subDept.getName().toLowerCase().replace(" ", "_");
                         rabbitmqService.publishToDepartment(msg, subDeptName);
                     }

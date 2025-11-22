@@ -216,6 +216,9 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         List<MessageResponseDto> result = query.getResultList();
         List<MessageResponseDto> filteredResult = new ArrayList<>();
         for (MessageResponseDto dto : result) {
+            if (dto.getPublishedAt() == null && dto.getPublishedAt().isBefore(now)) {
+                continue;
+            }
             if (dto.getLastSentAt() != null && dto.getRepeatIntervalMinutes() != null) {
                 // Calcula o próximo horário de envio
                 LocalDateTime nextSendTime = dto.getLastSentAt().plusMinutes(dto.getRepeatIntervalMinutes());
