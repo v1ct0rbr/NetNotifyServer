@@ -30,6 +30,11 @@ spring:
     queue: ${RABBITMQ_QUEUE:notification_queue}
     routing-key: ${RABBITMQ_ROUTING_KEY:notification_key}
     exchange-durable: ${RABBITMQ_EXCHANGE_DURABLE:true}
+    # Credenciais segregadas: Produtor (servidor) e Consumidor (agentes)
+    admin-producer-username: ${RABBITMQ_ADMIN_PRODUCER_USER:admin-producer}
+    admin-producer-password: ${RABBITMQ_ADMIN_PRODUCER_PASS:adminproducer123}
+    agent-consumer-username: ${RABBITMQ_AGENT_CONSUMER_USER:agent-consumer}
+    agent-consumer-password: ${RABBITMQ_AGENT_CONSUMER_PASS:agentconsumer123}
 
   profiles:
     include:

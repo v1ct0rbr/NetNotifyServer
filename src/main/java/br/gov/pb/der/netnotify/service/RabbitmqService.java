@@ -38,28 +38,75 @@ public class RabbitmqService {
     private String queueName;
     @Value("${spring.rabbitmq.routing-key:notification_key}")
     private String routingKey;
+    
+    // Credenciais separadas: produtor (servidor) e consumidor (agentes)
+    @Value("${spring.rabbitmq.admin-producer-username:admin-producer}")
+    private String adminProducerUsername;
+    @Value("${spring.rabbitmq.admin-producer-password:adminproducer123}")
+    private String adminProducerPassword;
+    
+    @Value("${spring.rabbitmq.agent-consumer-username:agent-consumer}")
+    private String agentConsumerUsername;
+    @Value("${spring.rabbitmq.agent-consumer-password:agentconsumer123}")
+    private String agentConsumerPassword;
 
     @Autowired
     private TopicExchange fanoutExchange;
 
+    /**
+     * Factory padrão (usa credenciais do application.yaml)
+     */
     public ConnectionFactory rabbitConnectionFactory() {
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost(factoryHost);
         factory.setUsername(factoryUsername);
         factory.setPassword(factoryPassword);
         factory.setVirtualHost(factoryVirtualHost);
+        configureConnectionFactory(factory);
+        return factory;
+    }
 
+    /**
+     * Factory para produtor (servidor publicando mensagens)
+     * Usa credenciais admin-producer com permissão de write
+     */
+    public ConnectionFactory rabbitConnectionFactoryProducer() {
+        ConnectionFactory factory = new ConnectionFactory();
+        factory.setHost(factoryHost);
+        factory.setUsername(adminProducerUsername);
+        factory.setPassword(adminProducerPassword);
+        factory.setVirtualHost(factoryVirtualHost);
+        configureConnectionFactory(factory);
+        return factory;
+    }
+
+    /**
+     * Factory para consumidor (agentes recebendo mensagens)
+     * Usa credenciais agent-consumer com permissão read-only
+     */
+    public ConnectionFactory rabbitConnectionFactoryConsumer() {
+        ConnectionFactory factory = new ConnectionFactory();
+        factory.setHost(factoryHost);
+        factory.setUsername(agentConsumerUsername);
+        factory.setPassword(agentConsumerPassword);
+        factory.setVirtualHost(factoryVirtualHost);
+        configureConnectionFactory(factory);
+        return factory;
+    }
+
+    /**
+     * Configuração comum para todas as factories
+     */
+    private void configureConnectionFactory(ConnectionFactory factory) {
         // Configurações de otimização
         factory.setAutomaticRecoveryEnabled(true);
         factory.setNetworkRecoveryInterval(10000);
         factory.setRequestedHeartbeat(60);
         factory.setConnectionTimeout(30000);
-
-        return factory;
     }
 
     public void initializeExchangeAndQueue() throws IOException, TimeoutException {
-        ConnectionFactory factory = rabbitConnectionFactory();
+        ConnectionFactory factory = rabbitConnectionFactoryProducer();
         try (Connection connection = factory.newConnection();
                 Channel channel = connection.createChannel()) {
 
@@ -81,7 +128,7 @@ public class RabbitmqService {
     }
 
     public void basicPublish(String message) {
-        try (Connection connection = rabbitConnectionFactory().newConnection();
+        try (Connection connection = rabbitConnectionFactoryProducer().newConnection();
                 Channel channel = connection.createChannel()) {
 
             // Garante declaração com a mesma durabilidade configurada
@@ -226,13 +273,14 @@ public class RabbitmqService {
     /**
      * Publica mensagem usando um routing key específico (útil para Topic Exchange)
      * Permite enviar mensagens para departamentos específicos
+     * Usa credenciais de produtor (admin-producer)
      * 
      * @param message          Conteúdo da mensagem
      * @param customRoutingKey Routing key customizado (ex: "department.financeiro",
      *                         "department.rh")
      */
     public void publishWithRoutingKey(String message, String customRoutingKey) {
-        try (Connection connection = rabbitConnectionFactory().newConnection();
+        try (Connection connection = rabbitConnectionFactoryProducer().newConnection();
                 Channel channel = connection.createChannel()) {
 
             // Usa o tipo de exchange do bean (Fanout ou Topic conforme configurado)
@@ -245,7 +293,6 @@ public class RabbitmqService {
         } catch (IOException | TimeoutException e) {
             System.err
                     .println("Error publishing message with routing key '" + customRoutingKey + "': " + e.getMessage());
-            e.printStackTrace();
         }
     }
 

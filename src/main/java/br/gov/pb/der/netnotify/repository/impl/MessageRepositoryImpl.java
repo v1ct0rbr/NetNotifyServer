@@ -216,7 +216,7 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         List<MessageResponseDto> result = query.getResultList();
         List<MessageResponseDto> filteredResult = new ArrayList<>();
         for (MessageResponseDto dto : result) {
-            if (dto.getPublishedAt() == null && dto.getPublishedAt().isBefore(now)) {
+            if (dto.getPublishedAt() != null && dto.getPublishedAt().isAfter(now)) {
                 continue;
             }
             if (dto.getLastSentAt() != null && dto.getRepeatIntervalMinutes() != null) {

@@ -3,8 +3,12 @@ services:
     image: rabbitmq:3-management
     container_name: netnotify-rabbitmq    
     environment:
+      # Credenciais padrão do RabbitMQ (reconhecidas nativamente)
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      # Variáveis para script de inicialização (rabbitmq-init.sh) criar usuários segregados
+      RABBITMQ_ADMIN_PRODUCER_PASS: ${RABBITMQ_ADMIN_PRODUCER_PASS:-adminproducer123}
+      RABBITMQ_AGENT_CONSUMER_PASS: ${RABBITMQ_AGENT_CONSUMER_PASS:-agentconsumer123}
   netnotify-postgres:
     image: postgres:17
     container_name: netnotify-postgres

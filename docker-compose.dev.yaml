@@ -6,11 +6,21 @@ services:
       - "5672:5672" # porta do broker
       - "15672:15672" # painel web
     environment:
+      # Credenciais padrão do RabbitMQ (reconhecidas nativamente)
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
       RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST}
+      # Variáveis para script de inicialização (rabbitmq-init.sh) criar usuários segregados
+      RABBITMQ_ADMIN_PRODUCER_PASS: ${RABBITMQ_ADMIN_PRODUCER_PASS:-adminproducer123}
+      RABBITMQ_AGENT_CONSUMER_PASS: ${RABBITMQ_AGENT_CONSUMER_PASS:-agentconsumer123}
     volumes:
       - netnotify-rabbitmq-data:/var/lib/rabbitmq
+      - ./rabbitmq-init.sh:/docker-entrypoint-init.d/rabbitmq-init.sh:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   netnotify-postgres:
     image: postgres:17
