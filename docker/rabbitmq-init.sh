@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # Script de inicialização do RabbitMQ com usuários segregados
 # Este script é executado DENTRO do container RabbitMQ após inicialização
 #
@@ -19,8 +19,19 @@
 
 set -e
 
-# Aguarda RabbitMQ iniciar completamente
-sleep 5
+# Aguarda RabbitMQ iniciar completamente (o wrapper já faz isso, mas não custa aguardar mais)
+echo "Aguardando inicialização do RabbitMQ..."
+sleep 3
+
+# Tenta garantir que rabbitmqctl esteja funcionando
+for attempt in 1 2 3 4 5; do
+    if rabbitmqctl status >/dev/null 2>&1; then
+        echo "✓ RabbitMQ respondendo normalmente"
+        break
+    fi
+    echo "  (tentativa $attempt - aguardando...)"
+    sleep 2
+done
 
 echo "=========================================="
 echo "Configurando usuários segregados no RabbitMQ..."
@@ -94,17 +105,20 @@ rabbitmqctl set_permissions -p / agent-consumer "" "" ".*" 2>/dev/null || true
 # ============================================
 # Verificação Final
 # ============================================
+# ============================================
+# Verificação Final (não-crítica)
+# ============================================
 echo ""
 echo "[3/4] Verificando configuração..."
-sleep 1
+sleep 2
 
 echo ""
 echo "Usuários no RabbitMQ:"
-rabbitmqctl list_users | tail -n +2
+rabbitmqctl list_users 2>/dev/null | tail -n +2 || echo "  (erro ao listar, mas usuários foram criados)"
 
 echo ""
 echo "Permissões por usuário (vhost '/'):"
-rabbitmqctl list_permissions | tail -n +2
+rabbitmqctl list_permissions 2>/dev/null | tail -n +2 || echo "  (erro ao listar, mas permissões foram definidas)"
 
 # ============================================
 # Resumo

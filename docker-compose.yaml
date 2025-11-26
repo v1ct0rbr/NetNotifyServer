@@ -1,6 +1,8 @@
 services:
   netnotify-rabbitmq:
-    image: rabbitmq:3-management
+    build:
+      context: .
+      dockerfile: Dockerfile.rabbitmq
     container_name: netnotify-rabbitmq    
     environment:
       # Credenciais padrão do RabbitMQ (reconhecidas nativamente)

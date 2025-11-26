@@ -1,6 +1,8 @@
 services:
   netnotify-rabbitmq:
-    image: rabbitmq:3-management
+    build:
+      context: .
+      dockerfile: Dockerfile.rabbitmq
     container_name: netnotify-rabbitmq
     ports:
       - "5672:5672" # porta do broker
@@ -15,7 +17,6 @@ services:
       RABBITMQ_AGENT_CONSUMER_PASS: ${RABBITMQ_AGENT_CONSUMER_PASS:-agentconsumer123}
     volumes:
       - netnotify-rabbitmq-data:/var/lib/rabbitmq
-      - ./rabbitmq-init.sh:/docker-entrypoint-init.d/rabbitmq-init.sh:ro
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 30s
