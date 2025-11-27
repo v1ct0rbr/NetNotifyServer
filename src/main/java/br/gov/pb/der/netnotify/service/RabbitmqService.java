@@ -156,13 +156,26 @@ public class RabbitmqService {
     public String basicConsume(long timeoutMillis) {
         BlockingQueue<String> messageQueue = new ArrayBlockingQueue<>(1);
 
-        try (Connection connection = rabbitConnectionFactory().newConnection();
+        try (Connection connection = rabbitConnectionFactoryConsumer().newConnection();
                 Channel channel = connection.createChannel()) {
 
-            // Garante que exchange e fila existem
-            channel.exchangeDeclare(fanoutExchange.getName(), fanoutExchange.getType(), true);
-            channel.queueDeclare(queueName, true, false, false, null);
-            channel.queueBind(queueName, fanoutExchange.getName(), "#");
+            // Apenas verifica passivamente se exchange e fila existem (sem declarar)
+            // O exchange deve ter sido criado pelo servidor (admin-producer) na inicialização
+            try {
+                channel.exchangeDeclarePassive(fanoutExchange.getName());
+            } catch (IOException e) {
+                System.err.println("Warning: Exchange '" + fanoutExchange.getName() + "' does not exist. " +
+                        "Make sure server has initialized it. " + e.getMessage());
+                throw e;
+            }
+            
+            try {
+                channel.queueDeclarePassive(queueName);
+            } catch (IOException e) {
+                System.err.println("Warning: Queue '" + queueName + "' does not exist. " +
+                        "Make sure server has initialized it. " + e.getMessage());
+                throw e;
+            }
 
             System.out.println(" [*] Waiting for messages for " + timeoutMillis + "ms");
 
@@ -211,11 +224,16 @@ public class RabbitmqService {
     public List<String> listQueuesForCurrentChannel() {
         List<String> queues = new ArrayList<>();
 
-        try (Connection connection = rabbitConnectionFactory().newConnection();
+        try (Connection connection = rabbitConnectionFactoryProducer().newConnection();
                 Channel channel = connection.createChannel()) {
 
-            // Declara o exchange para garantir que existe
-            channel.exchangeDeclare(fanoutExchange.getName(), fanoutExchange.getType(), fanoutExchange.isDurable());
+            // Apenas verifica passivamente se o exchange existe
+            try {
+                channel.exchangeDeclarePassive(fanoutExchange.getName());
+            } catch (IOException e) {
+                System.err.println("Exchange does not exist: " + e.getMessage());
+                return queues;
+            }
 
             // Declara uma fila anônima temporária para obter informações de binding
             String tempQueueName = channel.queueDeclare().getQueue();
@@ -388,8 +406,16 @@ public class RabbitmqService {
     public String consumeFromDepartmentQueue(String queueName, long timeoutMillis) {
         BlockingQueue<String> messageQueue = new ArrayBlockingQueue<>(1);
 
-        try (Connection connection = rabbitConnectionFactory().newConnection();
+        try (Connection connection = rabbitConnectionFactoryConsumer().newConnection();
                 Channel channel = connection.createChannel()) {
+
+            // Apenas verifica passivamente se a fila existe (sem tentar declarar)
+            try {
+                channel.queueDeclarePassive(queueName);
+            } catch (IOException e) {
+                System.err.println("Queue does not exist: " + queueName + ". " + e.getMessage());
+                return null;
+            }
 
             String consumerTag = channel.basicConsume(queueName, true,
                     (tag, delivery) -> {
