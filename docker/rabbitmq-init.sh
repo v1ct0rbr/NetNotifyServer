@@ -71,8 +71,8 @@ echo "      → Aplicando senha (de RABBITMQ_ADMIN_PRODUCER_PASS)..."
 rabbitmqctl change_password admin-producer "$ADMIN_PRODUCER_PASS" 2>/dev/null || true
 
 # FORÇA atualizar permissões (mesmo que já existam)
-echo "      → Aplicando permissões (configure + write)..."
-rabbitmqctl set_permissions -p / admin-producer ".*" ".*" "" 2>/dev/null || true
+echo "      → Aplicando permissões (configure + write + read)..."
+rabbitmqctl set_permissions -p / admin-producer ".*" ".*" ".*" 2>/dev/null || true
 
 # FORÇA atualizar tags
 echo "      → Aplicando tags (management)..."
@@ -99,12 +99,15 @@ echo "      → Aplicando senha (de RABBITMQ_AGENT_CONSUMER_PASS)..."
 rabbitmqctl change_password agent-consumer "$AGENT_CONSUMER_PASS" 2>/dev/null || true
 
 # FORÇA atualizar permissões (mesmo que já existam)
-echo "      → Aplicando permissões (read only)..."
-rabbitmqctl set_permissions -p / agent-consumer "" "" ".*" 2>/dev/null || true
+# Agent-consumer pode:
+# - CRIAR/MODIFICAR apenas filas com padrão queue_agent_* e queue_department_*
+# - PUBLICAR apenas nessas mesmas filas
+# - LER de QUALQUER fila (para consumir mensagens)
+# 
+# IMPORTANTE: Usar regex correto com escape de pipes
+echo "      → Aplicando permissões (configure/write em queue_agent_* e queue_department_*, read em todas)..."
+rabbitmqctl set_permissions -p / agent-consumer '^(queue_agent_|queue_department_)' '^(queue_agent_|queue_department_)' '.*' 2>/dev/null || true
 
-# ============================================
-# Verificação Final
-# ============================================
 # ============================================
 # Verificação Final (não-crítica)
 # ============================================
@@ -129,8 +132,8 @@ echo "✓ Configuração concluída com sucesso!"
 echo "=========================================="
 echo ""
 echo "Usuários criados:"
-echo "  • admin-producer     (produtor: write + configure)"
-echo "  • agent-consumer     (consumidor: read only)"
+echo "  • admin-producer     (produtor: configure + write + read em tudo)"
+echo "  • agent-consumer     (consumidor: configure + read em queue_agent_*, read em tudo)"
 echo "  • guest              (padrão RabbitMQ)"
 echo ""
 echo "Conexão para Servidor (NetNotify):"
