@@ -105,6 +105,7 @@ public class MessageService implements AbstractService<Message, UUID> {
             if (Boolean.TRUE.equals(message.getSendToSubdivisions())) {
                 for (Department dept : departmentList) {
                     List<Department> subdivisions = departmentService.findByParentDepartmentId(dept.getId());
+
                     for (Department subDept : subdivisions) {
                         if (departmentList.contains(subDept)) {
                             continue; // Já está na lista principal
