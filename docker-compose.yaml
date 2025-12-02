@@ -19,7 +19,6 @@ services:
     container_name: netnotify-postgres
     volumes:
       - netnotify-postgres-data:/var/lib/postgresql/data
-   
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -27,7 +26,6 @@ services:
   netnotify-dragonfly:
     image: docker.dragonflydb.io/dragonflydb/dragonfly
     container_name: netnotify-dragonfly
-
     command: ["--requirepass", "${REDIS_PASSWORD}", "--databases", "${REDIS_DATABASE}"]
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}

@@ -3,10 +3,12 @@ FROM rabbitmq:3-management
 # Copiar script de inicialização
 COPY docker/rabbitmq-init.sh /docker-entrypoint-init.d/rabbitmq-init.sh
 COPY docker/docker-entrypoint-wrapper.sh /usr/local/bin/docker-entrypoint-wrapper.sh
+COPY docker/rabbitmq-healthcheck.sh /usr/local/bin/rabbitmq-healthcheck.sh
 
 # Garantir permissões de execução
 RUN chmod +x /docker-entrypoint-init.d/rabbitmq-init.sh && \
-    chmod +x /usr/local/bin/docker-entrypoint-wrapper.sh
+    chmod +x /usr/local/bin/docker-entrypoint-wrapper.sh && \
+    chmod +x /usr/local/bin/rabbitmq-healthcheck.sh
 
 # Usar wrapper como entrypoint para executar scripts de init antes do RabbitMQ
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint-wrapper.sh"]
