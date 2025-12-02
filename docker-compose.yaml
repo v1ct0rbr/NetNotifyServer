@@ -4,6 +4,9 @@ services:
       context: .
       dockerfile: Dockerfile.rabbitmq
     container_name: netnotify-rabbitmq    
+    ports:
+      - "5673:5672"   # Porta padrão do RabbitMQ para clientes
+      - "15673:15672" # Porta para o painel de administração do RabbitMQ
     environment:
       # Credenciais padrão do RabbitMQ (reconhecidas nativamente)
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}

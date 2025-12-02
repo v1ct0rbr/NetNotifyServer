@@ -1,0 +1,89 @@
+services:
+
+  netnotify-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: netnotify-server
+    ports:
+      - "8080:${SERVER_PORT:8080}"
+    environment:
+      KEYCLOAK_AUTH_SERVER_URL: ${KEYCLOAK_AUTH_SERVER_URL}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      KEYCLOAK_TOKEN_URL: ${KEYCLOAK_TOKEN_URL}
+      KEYCLOAK_PROVIDER_ISSUER: ${KEYCLOAK_PROVIDER_ISSUER}
+
+      PORT: ${PORT:8080}
+      POSTGRES_HOST: netnotify-postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER} 
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+      SPRING_PROFILES_ACTIVE: prod
+      RABBITMQ_HOST: netnotify-rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      RABBITMQ_VHOST: ${RABBITMQ_VHOST}
+      RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE}
+      RABBITMQ_QUEUE: ${RABBITMQ_QUEUE}
+      RABBITMQ_ROUTING_KEY: ${RABBITMQ_ROUTING_KEY}
+      RABBITMQ_EXCHANGE_DURABLE: ${RABBITMQ_EXCHANGE_DURABLE}
+      RABBITMQ_ADMIN_PRODUCER_USER: ${RABBITMQ_ADMIN_PRODUCER_USER}
+      RABBITMQ_ADMIN_PRODUCER_PASS: ${RABBITMQ_ADMIN_PRODUCER_PASS}
+      RABBITMQ_AGENT_CONSUMER_USER: ${RABBITMQ_AGENT_CONSUMER_USER}
+      RABBITMQ_AGENT_CONSUMER_PASS: ${RABBITMQ_AGENT_CONSUMER_PASS}
+      REACT_APP_URL: ${REACT_APP_URL}
+      REDIS_HOST: netnotify-dragonfly
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_PORT: ${REDIS_PORT}
+
+      
+  netnotify-rabbitmq:
+    build:
+      context: .
+      dockerfile: Dockerfile.rabbitmq
+    container_name: netnotify-rabbitmq    
+    ports:
+      - "5673:5672"   # Porta padrão do RabbitMQ para clientes
+      - "15673:15672" # Porta para o painel de administração do RabbitMQ
+    environment:
+      # Credenciais padrão do RabbitMQ (reconhecidas nativamente)
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      # Variáveis para script de inicialização (rabbitmq-init.sh) criar usuários segregados
+      RABBITMQ_ADMIN_PRODUCER_PASS: ${RABBITMQ_ADMIN_PRODUCER_PASS:-adminproducer123}
+      RABBITMQ_AGENT_CONSUMER_PASS: ${RABBITMQ_AGENT_CONSUMER_PASS:-agentconsumer123}
+  netnotify-postgres:
+    image: postgres:17
+    container_name: netnotify-postgres
+    volumes:
+      - netnotify-postgres-data:/var/lib/postgresql/data
+       
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+  netnotify-dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly
+    container_name: netnotify-dragonfly
+
+    command: ["--requirepass", "${REDIS_PASSWORD}", "--databases", "${REDIS_DATABASE}"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_DATABASE: ${REDIS_DATABASE}
+
+  netnotify-flyway:
+    image: flyway/flyway:latest
+    container_name: netnotify-flyway
+    depends_on:
+      - netnotify-postgres
+    command: -url=jdbc:postgresql://netnotify-postgres:5432/${POSTGRES_DB} -user=${POSTGRES_USER} -password=${POSTGRES_PASSWORD} migrate
+    volumes:
+      - ./migrations:/flyway/sql
+
+volumes:
+  netnotify-postgres-data:
+  
