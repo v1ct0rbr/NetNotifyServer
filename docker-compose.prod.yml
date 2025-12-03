@@ -12,7 +12,7 @@ services:
         condition: service_healthy
       netnotify-dragonfly:
         condition: service_healthy
-   
+    
     environment:
       KEYCLOAK_AUTH_SERVER_URL: ${KEYCLOAK_AUTH_SERVER_URL}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM}
@@ -83,12 +83,11 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    
 
   netnotify-dragonfly:
     image: docker.dragonflydb.io/dragonflydb/dragonfly
-    container_name: netnotify-dragonfly
-    ports:
-      - "6379:6379"
+    container_name: netnotify-dragonfly   
     command: [ "--requirepass", "${REDIS_PASSWORD}" ]
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
