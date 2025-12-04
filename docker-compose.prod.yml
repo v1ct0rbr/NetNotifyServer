@@ -99,14 +99,21 @@ services:
       start_period: 10s
       
 
-  netnotify-flyway:
-    image: flyway/flyway:latest
-    container_name: netnotify-flyway
+  netnotify- flyway:
+    container_name: flyway
+    build:
+      context: .
+      dockerfile: ./Dockerfile.flyway
+    restart: no
+    environment:
+      - FLYWAY_USER=${POSTGRES_USER}
+      - FLYWAY_PASSWORD=${POSTGRES_PASSWORD}
+      - FLYWAY_URL=jdbc:postgresql://netnotify-postgres:5432/${POSTGRES_DB}
+      - FLYWAY_LOCATIONS=filesystem:/flyway/sql
+      - FLYWAY_TABLE=flyway_schema_history      
+    
     depends_on:
       - netnotify-postgres
-    command: -url=jdbc:postgresql://netnotify-postgres:5432/${POSTGRES_DB} -user=${POSTGRES_USER} -password=${POSTGRES_PASSWORD} migrate
-    volumes:
-      - ./migrations:/flyway/sql
 
 volumes:
   netnotify-postgres-data:
