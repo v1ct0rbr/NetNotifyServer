@@ -38,7 +38,7 @@ public class SecurityConfiguration {
 
     @Value("${app.allowed-origins:http://localhost:3000}")
     private String allowedOrigins;
-    
+
     @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri:not-configured}")
     private String issuerUri;
 
@@ -51,6 +51,7 @@ public class SecurityConfiguration {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/messages/**", "/dashboard/**").hasAnyRole(roleUser, roleAdmin)
                 .requestMatchers("/aux/**").authenticated()
                 .requestMatchers("/auth/**").permitAll()
@@ -63,12 +64,14 @@ public class SecurityConfiguration {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .exceptionHandling(eh -> eh
-                    .authenticationEntryPoint((req, res, ex) -> {
-                        logger.error("🔐 [AUTH_ERROR] Autenticação falhou na requisição: {} {}", req.getMethod(), req.getRequestURI());
-                        logger.error("    Authorization header presente: {}", req.getHeader("Authorization") != null);
-                        logger.error("    Erro: {}", ex.getMessage());
-                        res.sendError(401, "Unauthorized");
-                    }));
+                        .authenticationEntryPoint((req, res, ex) -> {
+                            logger.error("🔐 [AUTH_ERROR] Autenticação falhou na requisição: {} {}", req.getMethod(),
+                                    req.getRequestURI());
+                            logger.error("    Authorization header presente: {}",
+                                    req.getHeader("Authorization") != null);
+                            logger.error("    Erro: {}", ex.getMessage());
+                            res.sendError(401, "Unauthorized");
+                        }));
         return http.build();
     }
 
@@ -81,7 +84,7 @@ public class SecurityConfiguration {
             String resource) {
         Map<String, Object> claim = jwt.getClaim(claimName);
         logger.info("🔍 Extraindo roles do claim: {} - Claim exists: {}", claimName, claim != null);
-        
+
         if (claim != null && claim.containsKey("roles")) {
             List<String> roles = (List<String>) claim.get("roles");
             logger.info("✅ Roles encontradas em {}: {}", claimName, roles);
@@ -97,8 +100,9 @@ public class SecurityConfiguration {
         if (resource != null) {
             // FIX: Usar "resource_access" ao invés de claimName
             Map<String, Object> resourceAccess = jwt.getClaim("resource_access");
-            logger.info("🔍 Extraindo roles de resource_access para recurso: {} - Exists: {}", resource, resourceAccess != null);
-            
+            logger.info("🔍 Extraindo roles de resource_access para recurso: {} - Exists: {}", resource,
+                    resourceAccess != null);
+
             if (resourceAccess != null && resourceAccess.containsKey(resource)) {
                 Map<String, Object> resourceRoles = (Map<String, Object>) resourceAccess.get(resource);
                 if (resourceRoles != null && resourceRoles.containsKey("roles")) {
@@ -113,7 +117,8 @@ public class SecurityConfiguration {
                     logger.warn("⚠️ Recurso {} não contém roles. Conteúdo: {}", resource, resourceRoles);
                 }
             } else if (resourceAccess != null) {
-                logger.warn("⚠️ Recurso {} não encontrado em resource_access. Recursos disponíveis: {}", resource, resourceAccess.keySet());
+                logger.warn("⚠️ Recurso {} não encontrado em resource_access. Recursos disponíveis: {}", resource,
+                        resourceAccess.keySet());
             }
         }
     }
@@ -157,17 +162,18 @@ public class SecurityConfiguration {
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter jwtAuthenticationConverter = new JwtAuthenticationConverter();
-        
+
         // NÃO validar o "aud" (audience) pois o Keycloak pode usar valores diferentes
         jwtAuthenticationConverter.setPrincipalClaimName("preferred_username");
-        
+
         jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(jwt -> {
             Collection<GrantedAuthority> authorities = new ArrayList<>();
 
             logger.info("🔐 ============ INICIANDO EXTRAÇÃO DE ROLES DO JWT ============");
             logger.info("📋 Cliente (aud): {}", jwt.getAudience());
             logger.info("👤 Subject (sub): {}", jwt.getSubject());
-            // Use dedicated accessor to avoid ClassCastException from String.valueOf overloads
+            // Use dedicated accessor to avoid ClassCastException from String.valueOf
+            // overloads
             logger.info("👤 Preferred Username: {}", jwt.getClaimAsString("preferred_username"));
             logger.info("🔑 Resource configurado: {}", resource);
             logger.info("🌐 Issuer esperado: {}", issuerUri);
