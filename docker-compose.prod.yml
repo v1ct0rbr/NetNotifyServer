@@ -106,11 +106,11 @@ services:
       dockerfile: ./Dockerfile.flyway
     restart: no
     environment:
-      - FLYWAY_USER=${POSTGRES_USER}
-      - FLYWAY_PASSWORD=${POSTGRES_PASSWORD}
-      - FLYWAY_URL=jdbc:postgresql://netnotify-postgres:5432/${POSTGRES_DB}
-      - FLYWAY_LOCATIONS=filesystem:/flyway/sql
-      - FLYWAY_TABLE=flyway_schema_history      
+      FLYWAY_USER: ${POSTGRES_USER}
+      FLYWAY_PASSWORD: ${POSTGRES_PASSWORD}
+      FLYWAY_URL: jdbc:postgresql://netnotify-postgres:5432/${POSTGRES_DB}
+      FLYWAY_LOCATIONS: filesystem:/flyway/sql
+      FLYWAY_TABLE: flyway_schema_history      
     
     depends_on:
       - netnotify-postgres
