@@ -99,7 +99,7 @@ services:
       start_period: 10s
       
 
-  netnotify- flyway:
+  netnotify-flyway:
     container_name: flyway
     build:
       context: .
