@@ -3,12 +3,10 @@
 # Este script é executado DENTRO do container RabbitMQ após inicialização
 #
 # IMPORTANTE - O que é VARIÁVEL de AMBIENTE:
+#   ✓ RABBITMQ_ADMIN_PRODUCER_USER   → usuário do produtor (VARIÁVEL)
 #   ✓ RABBITMQ_ADMIN_PRODUCER_PASS   → senha do produtor (VARIÁVEL)
+#   ✓ RABBITMQ_AGENT_CONSUMER_USER   → usuário do consumidor (VARIÁVEL)
 #   ✓ RABBITMQ_AGENT_CONSUMER_PASS   → senha do consumidor (VARIÁVEL)
-#
-# IMPORTANTE - O que é HARDCODED:
-#   ✗ admin-producer                  → nome do usuário produtor (FIXO)
-#   ✗ agent-consumer                  → nome do usuário consumidor (FIXO)
 #
 # Fluxo:
 # 1. RabbitMQ inicia com user padrão (RABBITMQ_DEFAULT_USER/PASS)
@@ -37,14 +35,16 @@ echo "=========================================="
 echo "Configurando usuários segregados no RabbitMQ..."
 echo "=========================================="
 
-# Senhas são lidas das variáveis de ambiente (com fallback para padrão)
+# Credenciais lidas das variáveis de ambiente (com fallback para padrão)
+ADMIN_PRODUCER_USER=${RABBITMQ_ADMIN_PRODUCER_USER:-admin-producer}
 ADMIN_PRODUCER_PASS=${RABBITMQ_ADMIN_PRODUCER_PASS:-adminproducer123}
+AGENT_CONSUMER_USER=${RABBITMQ_AGENT_CONSUMER_USER:-agent-consumer}
 AGENT_CONSUMER_PASS=${RABBITMQ_AGENT_CONSUMER_PASS:-agentconsumer123}
 
 echo ""
-echo "Nomes dos usuários (FIXOS):"
-echo "  • ADMIN_PRODUCER_USER = admin-producer"
-echo "  • AGENT_CONSUMER_USER = agent-consumer"
+echo "Nomes dos usuários (DE VARIÁVEIS DE AMBIENTE):"
+echo "  • ADMIN_PRODUCER_USER = $ADMIN_PRODUCER_USER"
+echo "  • AGENT_CONSUMER_USER = $AGENT_CONSUMER_USER"
 echo ""
 echo "Senhas (DE VARIÁVEIS DE AMBIENTE):"
 echo "  • RABBITMQ_ADMIN_PRODUCER_PASS = ****** (variável de env)"
@@ -52,51 +52,51 @@ echo "  • RABBITMQ_AGENT_CONSUMER_PASS = ****** (variável de env)"
 echo ""
 
 # ============================================
-# Usuário PRODUTOR: admin-producer (FIXO)
+# Usuário PRODUTOR (configurável)
 # ============================================
-echo "[1/4] Configurando usuário produtor: 'admin-producer'..."
+echo "[1/4] Configurando usuário produtor: '$ADMIN_PRODUCER_USER'..."
 
-if rabbitmqctl list_users | grep -q "^admin-producer"; then
-    echo "      ✓ Usuário 'admin-producer' já existe"
+if rabbitmqctl list_users | grep -q "^$ADMIN_PRODUCER_USER"; then
+    echo "      ✓ Usuário '$ADMIN_PRODUCER_USER' já existe"
     echo "      → Atualizando senha e permissões..."
 else
-    echo "      → Criando novo usuário 'admin-producer'..."
+    echo "      → Criando novo usuário '$ADMIN_PRODUCER_USER'..."
 fi
 
 # Tenta criar (se não existir, cria; se existir, comando é ignorado silenciosamente)
-rabbitmqctl add_user admin-producer "$ADMIN_PRODUCER_PASS" 2>/dev/null || true
+rabbitmqctl add_user "$ADMIN_PRODUCER_USER" "$ADMIN_PRODUCER_PASS" 2>/dev/null || true
 
 # FORÇA atualizar a senha (mesmo que o usuário já exista)
 echo "      → Aplicando senha (de RABBITMQ_ADMIN_PRODUCER_PASS)..."
-rabbitmqctl change_password admin-producer "$ADMIN_PRODUCER_PASS" 2>/dev/null || true
+rabbitmqctl change_password "$ADMIN_PRODUCER_USER" "$ADMIN_PRODUCER_PASS" 2>/dev/null || true
 
 # FORÇA atualizar permissões (mesmo que já existam)
 echo "      → Aplicando permissões (configure + write + read)..."
-rabbitmqctl set_permissions -p / admin-producer ".*" ".*" ".*" 2>/dev/null || true
+rabbitmqctl set_permissions -p / "$ADMIN_PRODUCER_USER" ".*" ".*" ".*" 2>/dev/null || true
 
 # FORÇA atualizar tags
 echo "      → Aplicando tags (management)..."
-rabbitmqctl set_user_tags admin-producer management 2>/dev/null || true
+rabbitmqctl set_user_tags "$ADMIN_PRODUCER_USER" management 2>/dev/null || true
 
 # ============================================
-# Usuário CONSUMIDOR: agent-consumer (FIXO)
+# Usuário CONSUMIDOR (configurável)
 # ============================================
 echo ""
-echo "[2/4] Configurando usuário consumidor: 'agent-consumer'..."
+echo "[2/4] Configurando usuário consumidor: '$AGENT_CONSUMER_USER'..."
 
-if rabbitmqctl list_users | grep -q "^agent-consumer"; then
-    echo "      ✓ Usuário 'agent-consumer' já existe"
+if rabbitmqctl list_users | grep -q "^$AGENT_CONSUMER_USER"; then
+    echo "      ✓ Usuário '$AGENT_CONSUMER_USER' já existe"
     echo "      → Atualizando senha e permissões..."
 else
-    echo "      → Criando novo usuário 'agent-consumer'..."
+    echo "      → Criando novo usuário '$AGENT_CONSUMER_USER'..."
 fi
 
 # Tenta criar (se não existir, cria; se existir, comando é ignorado silenciosamente)
-rabbitmqctl add_user agent-consumer "$AGENT_CONSUMER_PASS" 2>/dev/null || true
+rabbitmqctl add_user "$AGENT_CONSUMER_USER" "$AGENT_CONSUMER_PASS" 2>/dev/null || true
 
 # FORÇA atualizar a senha (mesmo que o usuário já exista)
 echo "      → Aplicando senha (de RABBITMQ_AGENT_CONSUMER_PASS)..."
-rabbitmqctl change_password agent-consumer "$AGENT_CONSUMER_PASS" 2>/dev/null || true
+rabbitmqctl change_password "$AGENT_CONSUMER_USER" "$AGENT_CONSUMER_PASS" 2>/dev/null || true
 
 # FORÇA atualizar permissões (mesmo que já existam)
 # Agent-consumer pode:
@@ -106,7 +106,7 @@ rabbitmqctl change_password agent-consumer "$AGENT_CONSUMER_PASS" 2>/dev/null ||
 # 
 # IMPORTANTE: Usar regex correto com escape de pipes
 echo "      → Aplicando permissões (configure/write em queue_agent_* e queue_department_*, read em todas)..."
-rabbitmqctl set_permissions -p / agent-consumer '^(queue_agent_|queue_department_)' '^(queue_agent_|queue_department_)' '.*' 2>/dev/null || true
+rabbitmqctl set_permissions -p / "$AGENT_CONSUMER_USER" '^(queue_agent_|queue_department_)' '^(queue_agent_|queue_department_)' '.*' 2>/dev/null || true
 
 # ============================================
 # Verificação Final (não-crítica)
@@ -132,16 +132,16 @@ echo "✓ Configuração concluída com sucesso!"
 echo "=========================================="
 echo ""
 echo "Usuários criados:"
-echo "  • admin-producer     (produtor: configure + write + read em tudo)"
-echo "  • agent-consumer     (consumidor: configure + read em queue_agent_*, read em tudo)"
+echo "  • $ADMIN_PRODUCER_USER     (produtor: configure + write + read em tudo)"
+echo "  • $AGENT_CONSUMER_USER     (consumidor: configure + read em queue_agent_*, read em tudo)"
 echo "  • guest              (padrão RabbitMQ)"
 echo ""
 echo "Conexão para Servidor (NetNotify):"
-echo "  user: admin-producer"
+echo "  user: $ADMIN_PRODUCER_USER"
 echo "  pass: [RABBITMQ_ADMIN_PRODUCER_PASS]"
 echo ""
 echo "Conexão para Agentes:"
-echo "  user: agent-consumer"
+echo "  user: $AGENT_CONSUMER_USER"
 echo "  pass: [RABBITMQ_AGENT_CONSUMER_PASS]"
 echo ""
 echo "=========================================="

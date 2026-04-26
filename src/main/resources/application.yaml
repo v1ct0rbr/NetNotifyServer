@@ -25,7 +25,7 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASSWORD:guest}
-    virtual-host: /
+    virtual-host: ${RABBITMQ_VHOST:/}
     exchange: ${RABBITMQ_EXCHANGE:netnotify_topic}
     queue: ${RABBITMQ_QUEUE:notification_queue}
     routing-key: ${RABBITMQ_ROUTING_KEY:notification_key}
