@@ -240,7 +240,7 @@ public class AuthService {
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-        body.add("grant_type", "aut");
+        body.add("grant_type", "refresh_token");
         body.add("client_id", clientId);
         body.add("client_secret", clientSecret);
         body.add("refresh_token", refreshToken);
