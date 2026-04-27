@@ -106,7 +106,7 @@ public class AuthService {
 
             return response;
         } catch (Exception e) {
-            log.error("❌ Erro na troca de código:", e);
+            // Já logado em getKeycloakToken(); apenas repropaga
             throw e;
         }
     }
@@ -150,7 +150,7 @@ public class AuthService {
 
             return response;
         } catch (Exception e) {
-            log.error("❌ Erro ao renovar token:", e);
+            // Já logado em refreshKeycloakToken(); apenas repropaga
             throw e;
         }
     }
@@ -178,21 +178,6 @@ public class AuthService {
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);
 
         try {
-            log.info("🔄 Trocando authorization code por token:");
-            log.info("  🔗 Token URL: {}", tokenUrl);
-            log.info("  📍 Redirect URI (original): {}", effectiveRedirectUri);
-
-            log.info("  🔑 Client ID: {}", clientId);
-            if (codeVerifier != null && !codeVerifier.isBlank()) {
-                log.info("  🔐 PKCE code_verifier: presente (tamanho={})", codeVerifier.length());
-            } else {
-                log.info("  🔐 PKCE code_verifier: ausente");
-            }
-            log.debug(
-                    "  📦 Request Body: grant_type=authorization_code, client_id={}, code=***, redirect_uri={}, code_verifier={}",
-                    clientId, effectiveRedirectUri,
-                    (codeVerifier != null && !codeVerifier.isBlank()) ? "***" : "<none>");
-
             @SuppressWarnings("unchecked")
             Map<String, Object> response = restTemplate.postForObject(tokenUrl, request, Map.class);
 
@@ -207,12 +192,12 @@ public class AuthService {
 
             log.info("✅ Token obtido com sucesso do Keycloak");
             return response;
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            log.warn("⚠️ Keycloak rejeitou a troca de código: {} — {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw e;
         } catch (Exception e) {
-            log.error("❌ ERRO ao chamar Keycloak!");
-            log.error("  URL tentada: {}", tokenUrl);
-            log.error("  Redirect URI enviado (original): {}", effectiveRedirectUri);
-
-            log.error("  Mensagem erro: {}", e.getMessage());
+            log.error("❌ ERRO inesperado ao chamar Keycloak! URL: {} | Redirect: {} | Erro: {}",
+                    tokenUrl, effectiveRedirectUri, e.getMessage());
             throw e;
         }
     }
@@ -258,8 +243,11 @@ public class AuthService {
 
             log.info("✅ Token renovado com sucesso");
             return response;
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            log.warn("⚠️ Keycloak rejeitou renovação de token: {} — {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw e;
         } catch (Exception e) {
-            log.error("❌ Erro ao renovar token do Keycloak:", e);
+            log.error("❌ Erro inesperado ao renovar token do Keycloak: {}", e.getMessage());
             throw e;
         }
     }
@@ -374,9 +362,11 @@ public class AuthService {
             log.info("✅ Token revogado com sucesso");
             return true;
 
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            log.warn("⚠️ Keycloak retornou erro ao revogar token: {} — {}", e.getStatusCode(), e.getResponseBodyAsString());
+            return false;
         } catch (Exception e) {
-            log.error("❌ Erro ao revogar token no Keycloak: {}", e.getMessage(), e);
-            // Retorna false mas não lança exceção, pois falha não deve impedir logout local
+            log.error("❌ Erro inesperado ao revogar token: {}", e.getMessage());
             return false;
         }
     }
@@ -404,7 +394,7 @@ public class AuthService {
             }
 
         } catch (Exception e) {
-            log.error("❌ Erro ao fazer logout: {}", e.getMessage(), e);
+            log.error("❌ Erro ao fazer logout: {}", e.getMessage());
             throw e;
         }
     }
