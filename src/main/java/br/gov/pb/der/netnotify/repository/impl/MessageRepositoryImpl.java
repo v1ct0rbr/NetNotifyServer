@@ -11,8 +11,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import br.gov.pb.der.netnotify.dto.AgentMessageDto;
 import br.gov.pb.der.netnotify.dto.MessageDto;
 import br.gov.pb.der.netnotify.filter.MessageFilter;
+import br.gov.pb.der.netnotify.model.AgentScope;
 import br.gov.pb.der.netnotify.model.Level_;
 import br.gov.pb.der.netnotify.model.Message;
 import br.gov.pb.der.netnotify.model.MessageType_;
@@ -61,7 +63,8 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 message.get(Message_.lastSentAt),
                 message.get(Message_.repeatIntervalMinutes),
                 message.get(Message_.sendToSubdivisions),
-                message.get(Message_.publishedAt)));
+                message.get(Message_.publishedAt),
+                message.get(Message_.agentScope)));
         // Filtros dinâmicos
         List<Predicate> predicates = new ArrayList<>();
         if (filter != null) {
@@ -194,7 +197,8 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 message.get(Message_.lastSentAt),
                 message.get(Message_.repeatIntervalMinutes),
                 message.get(Message_.sendToSubdivisions),
-                message.get(Message_.publishedAt)));
+                message.get(Message_.publishedAt),
+                message.get(Message_.agentScope)));
         // Filtros dinâmicos
 
         List<Predicate> predicates = new ArrayList<>();
@@ -274,5 +278,55 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 message.getRepeatIntervalMinutes());
         return dto;
 
+    }
+
+    @Override
+    public List<AgentMessageDto> findMessagesForAgent(String agentType, String departmentName, LocalDateTime since) {
+        LocalDateTime now = LocalDateTime.now();
+
+        List<AgentScope> validScopes = agentType != null && agentType.equalsIgnoreCase("external")
+                ? List.of(AgentScope.EXTERNAL, AgentScope.BOTH)
+                : List.of(AgentScope.INTERNAL, AgentScope.BOTH);
+
+        String jpql = """
+                SELECT DISTINCT m FROM Message m
+                LEFT JOIN FETCH m.level l
+                LEFT JOIN FETCH m.type t
+                LEFT JOIN FETCH m.user u
+                LEFT JOIN m.departments d
+                WHERE (m.lastSentAt IS NULL OR m.lastSentAt >= :since)
+                AND (m.expireAt IS NULL OR m.expireAt > :now)
+                AND (m.publishedAt IS NULL OR m.publishedAt <= :now)
+                AND m.agentScope IN :scopes
+                AND (:departmentName IS NULL OR :departmentName = '' OR d.name = :departmentName OR m.departments IS EMPTY)
+                ORDER BY m.lastSentAt DESC
+                """;
+
+        List<Message> messages = entityManager.createQuery(jpql, Message.class)
+                .setParameter("since", since)
+                .setParameter("now", now)
+                .setParameter("scopes", validScopes)
+                .setParameter("departmentName", departmentName != null ? departmentName.toLowerCase().replace(" ", "_") : "")
+                .getResultList();
+
+        return messages.stream().map(m -> {
+            AgentMessageDto dto = new AgentMessageDto();
+            dto.setId(m.getId());
+            dto.setTitle(m.getTitle());
+            dto.setContent(m.getContent());
+            dto.setLevel(m.getLevel() != null ? m.getLevel().getName() : null);
+            dto.setType(m.getType() != null ? m.getType().getName() : null);
+            dto.setUser(m.getUser() != null ? m.getUser().getUsername() : null);
+            dto.setPublishedAt(m.getPublishedAt());
+            dto.setExpireAt(m.getExpireAt());
+            dto.setLastSentAt(m.getLastSentAt());
+            dto.setAgentScope(m.getAgentScope());
+            if (m.getDepartments() != null) {
+                dto.setDepartments(m.getDepartments().stream()
+                        .map(dep -> new AgentMessageDto.DepartmentInfo(dep.getId(), dep.getName()))
+                        .toList());
+            }
+            return dto;
+        }).toList();
     }
 }

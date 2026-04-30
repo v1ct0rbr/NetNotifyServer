@@ -10,6 +10,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 import br.gov.pb.der.netnotify.response.MessageResponseDto;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -81,6 +83,10 @@ public class Message {
     @Column(name = "send_to_subdivisions")
     private Boolean sendToSubdivisions;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "agent_scope", length = 20)
+    private AgentScope agentScope = AgentScope.BOTH;
+
     public MessageResponseDto objectMapper() {
         return new MessageResponseDto(
                 this.id,
@@ -95,7 +101,8 @@ public class Message {
                 this.lastSentAt,
                 this.repeatIntervalMinutes,
                 this.sendToSubdivisions,
-                this.publishedAt);
+                this.publishedAt,
+                this.agentScope);
 
     }
 

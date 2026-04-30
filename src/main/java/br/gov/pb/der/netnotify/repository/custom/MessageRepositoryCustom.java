@@ -1,11 +1,13 @@
 package br.gov.pb.der.netnotify.repository.custom;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import br.gov.pb.der.netnotify.dto.AgentMessageDto;
 import br.gov.pb.der.netnotify.dto.MessageDto;
 import br.gov.pb.der.netnotify.filter.MessageFilter;
 import br.gov.pb.der.netnotify.response.MessageResponseDto;
@@ -19,4 +21,6 @@ public interface MessageRepositoryCustom {
     Long countMessages(MessageFilter filter);
 
     public MessageDto findMessageDtoById(UUID id);
+
+    List<AgentMessageDto> findMessagesForAgent(String agentType, String departmentName, LocalDateTime since);
 }

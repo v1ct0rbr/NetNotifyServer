@@ -83,6 +83,8 @@ app:
   jwt:
     secret: ${JWT_SECRET:myjwtsecretkey}
     expiration: ${JWT_EXPIRATION:3600000} # 1 hora
+  agent-api:
+    token: ${AGENT_API_TOKEN:netnotify-agent-secret-change-me}
 
 # Debug logging para OAuth2/JWT
 logging:

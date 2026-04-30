@@ -25,6 +25,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import lombok.RequiredArgsConstructor;
 
+import br.gov.pb.der.netnotify.filter.AgentApiTokenFilter;
+
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -32,6 +34,8 @@ import lombok.RequiredArgsConstructor;
 public class SecurityConfiguration {
 
     private static final Logger logger = LoggerFactory.getLogger(SecurityConfiguration.class);
+
+    private final AgentApiTokenFilter agentApiTokenFilter;
 
     @Value("${app.keycloak.client-id:netnotify-client}")
     private String resource;
@@ -52,6 +56,7 @@ public class SecurityConfiguration {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers("/agent-api/**").permitAll()
                 .requestMatchers("/messages/**", "/dashboard/**").hasAnyRole(roleUser, roleAdmin)
                 .requestMatchers("/aux/**").authenticated()
                 .requestMatchers("/auth/**").permitAll()
@@ -59,6 +64,7 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.DELETE, "/messages/**").hasAnyRole(roleAdmin)
                 .requestMatchers("/departments/**").hasAnyRole(roleAdmin)
                 .anyRequest().authenticated())
+                .addFilterBefore(agentApiTokenFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
                 .oauth2ResourceServer(
                         oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
                 .csrf(csrf -> csrf.disable())

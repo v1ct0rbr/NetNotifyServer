@@ -95,6 +95,7 @@ public class MessageController {
             // Garante que o usuário local exista (cria se ainda não sincronizado)
             message.setUser(userService.getOrCreateUser());
             message.setSendToSubdivisions(messageDto.getSendToSubdivisions());
+            message.setAgentScope(messageDto.getAgentScope() != null ? messageDto.getAgentScope() : br.gov.pb.der.netnotify.model.AgentScope.BOTH);
             message.setExpireAt(messageDto.getExpireAt());
             message.setPublishedAt(messageDto.getPublishedAt());
             message.setRepeatIntervalMinutes(messageDto.getRepeatIntervalMinutes());
