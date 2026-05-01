@@ -35,6 +35,12 @@ spring:
     admin-producer-password: ${RABBITMQ_ADMIN_PRODUCER_PASS:adminproducer123}
     agent-consumer-username: ${RABBITMQ_AGENT_CONSUMER_USER:agent-consumer}
     agent-consumer-password: ${RABBITMQ_AGENT_CONSUMER_PASS:agentconsumer123}
+    # Credenciais para a Management HTTP API (porta 15672)
+    # O usuário precisa ter a tag 'management' ou 'administrator' no RabbitMQ
+    management:
+      port: ${RABBITMQ_MANAGEMENT_PORT:15672}
+      username: ${RABBITMQ_ADMIN_PRODUCER_USER:guest}
+      password: ${RABBITMQ_ADMIN_PRODUCER_PASS:guest}
 
   profiles:
     include:

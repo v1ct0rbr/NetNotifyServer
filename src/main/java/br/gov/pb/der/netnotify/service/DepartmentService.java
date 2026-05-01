@@ -2,6 +2,8 @@ package br.gov.pb.der.netnotify.service;
 
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import br.gov.pb.der.netnotify.dto.DepartmentDto;
@@ -21,6 +23,7 @@ public class DepartmentService {
         return departmentRepository.findAll();
     }
 
+    @Cacheable(value = "departments", key = "'all_dto'")
     public List<DepartmentResponseDto> findAllDto() {
         return departmentRepository.findAllDto();
     }
@@ -29,10 +32,12 @@ public class DepartmentService {
         return departmentRepository.findById(id).orElse(null);
     }
 
+    @Cacheable(value = "departments", key = "'subdepts_' + #parentId")
     public List<Department> findByParentDepartmentId(java.util.UUID parentId) {
         return departmentRepository.findByParentDepartmentId(parentId);
     }
 
+    @CacheEvict(value = "departments", allEntries = true)
     public Department saveFromDto(DepartmentDto dto) {
         Department department = new Department();
 
@@ -52,6 +57,7 @@ public class DepartmentService {
     }
 
     @Transactional
+    @CacheEvict(value = "departments", allEntries = true)
     public void deleteById(java.util.UUID id) {
         departmentRepository.setNullParentDepartmentById(id);
         departmentRepository.deleteById(id);

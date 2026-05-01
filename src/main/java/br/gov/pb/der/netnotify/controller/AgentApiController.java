@@ -3,6 +3,7 @@ package br.gov.pb.der.netnotify.controller;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.gov.pb.der.netnotify.dto.AgentMessageDto;
-import br.gov.pb.der.netnotify.repository.impl.MessageRepositoryImpl;
+import br.gov.pb.der.netnotify.service.MessageService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -24,7 +25,7 @@ public class AgentApiController {
 
     private static final Logger logger = LoggerFactory.getLogger(AgentApiController.class);
 
-    private final MessageRepositoryImpl messageRepositoryImpl;
+    private final MessageService messageService;
 
     /**
      * Retorna mensagens ativas para o agente web.
@@ -53,9 +54,18 @@ public class AgentApiController {
             }
         }
 
-        List<AgentMessageDto> messages = messageRepositoryImpl.findMessagesForAgent(agentType, departmentName, sinceDateTime);
+        List<AgentMessageDto> messages = messageService.findMessagesForAgent(agentType, departmentName, sinceDateTime);
         logger.info("[AgentApi] Retornando {} mensagem(ens) para agentType={}", messages.size(), agentType);
 
         return ResponseEntity.ok(messages);
+    }
+
+    /**
+     * Health check para verificar se a API do agente está acessível e o token é válido.
+     * Retorna 200 se o token for válido (o filtro já rejeitou com 401 se não for).
+     */
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, String>> health() {
+        return ResponseEntity.ok(Map.of("status", "ok"));
     }
 }

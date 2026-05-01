@@ -21,10 +21,15 @@ import com.rabbitmq.client.ConnectionFactory;
 import lombok.Getter;
 import lombok.Setter;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Service
 @Getter
 @Setter
 public class RabbitmqService {
+
+    private static final Logger log = LoggerFactory.getLogger(RabbitmqService.class);
 
     @Value("${spring.rabbitmq.host}")
     private String factoryHost;
@@ -393,6 +398,33 @@ public class RabbitmqService {
             System.err.println("Error creating department queue: " + e.getMessage());
             e.printStackTrace();
             return null;
+        }
+    }
+
+    /**
+     * Publica uma mensagem diretamente em uma fila pelo nome, usando o exchange
+     * padrão (string vazia). O RabbitMQ roteia pelo nome exato da fila.
+     *
+     * <p>Útil para envio isolado a um agente específico sem passar pelo exchange
+     * de tópicos. O usuário admin-producer precisa ter permissão de write no vhost.
+     *
+     * @param targetQueueName nome exato da fila de destino
+     * @param message         conteúdo (geralmente JSON)
+     */
+    public void publishDirectToQueue(String targetQueueName, String message) {
+        try (Connection connection = rabbitConnectionFactoryProducer().newConnection();
+                Channel channel = connection.createChannel()) {
+
+            // Garante que a fila existe (passive — não cria nem altera)
+            channel.queueDeclarePassive(targetQueueName);
+
+            // Exchange padrão ("") roteia pelo nome da fila como routing key
+            channel.basicPublish("", targetQueueName, null,
+                    message.getBytes(StandardCharsets.UTF_8));
+            log.info("[RabbitMQ] Mensagem enviada diretamente para fila '{}': {}", targetQueueName, message);
+
+        } catch (IOException | TimeoutException e) {
+            log.error("[RabbitMQ] Erro ao publicar diretamente na fila '{}': {}", targetQueueName, e.getMessage());
         }
     }
 

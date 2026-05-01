@@ -98,7 +98,9 @@ public class MessageController {
             message.setAgentScope(messageDto.getAgentScope() != null ? messageDto.getAgentScope() : br.gov.pb.der.netnotify.model.AgentScope.BOTH);
             message.setExpireAt(messageDto.getExpireAt());
             message.setPublishedAt(messageDto.getPublishedAt());
-            message.setRepeatIntervalMinutes(messageDto.getRepeatIntervalMinutes());
+            // Valor 0 significa "sem repetição" — trata como null para não disparar o scheduler
+            Integer interval = messageDto.getRepeatIntervalMinutes();
+            message.setRepeatIntervalMinutes((interval != null && interval > 0) ? interval : null);
             message.setDepartments(messageDto.getDepartments().stream()
                     .map(deptId -> departmentService.findById(deptId))
                     .filter(dept -> dept != null)

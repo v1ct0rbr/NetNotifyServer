@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -23,9 +24,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import lombok.RequiredArgsConstructor;
-
 import br.gov.pb.der.netnotify.filter.AgentApiTokenFilter;
+import lombok.RequiredArgsConstructor;
 
 @Configuration
 @EnableWebSecurity
@@ -52,19 +52,36 @@ public class SecurityConfiguration {
     @Value("${app.keycloak.roles.admin:NETNOTIFY2}")
     private String roleAdmin;
 
+    /**
+     * Filter chain dedicada para /agent-api/** — sem oauth2ResourceServer,
+     * evitando que o BearerTokenAuthenticationFilter tente parsear o token
+     * do agente como JWT.
+     */
     @Bean
+    @Order(1)
+    public SecurityFilterChain agentApiFilterChain(HttpSecurity http) throws Exception {
+        http.securityMatcher("/agent-api/**")
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                .addFilterBefore(agentApiTokenFilter,
+                        org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
+                .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()));
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/agent-api/**").permitAll()
                 .requestMatchers("/messages/**", "/dashboard/**").hasAnyRole(roleUser, roleAdmin)
                 .requestMatchers("/aux/**").authenticated()
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/profile/**").authenticated()
+                .requestMatchers("/rabbit/**").hasAnyRole(roleAdmin)
                 .requestMatchers(HttpMethod.DELETE, "/messages/**").hasAnyRole(roleAdmin)
                 .requestMatchers("/departments/**").hasAnyRole(roleAdmin)
                 .anyRequest().authenticated())
-                .addFilterBefore(agentApiTokenFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
                 .oauth2ResourceServer(
                         oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
                 .csrf(csrf -> csrf.disable())

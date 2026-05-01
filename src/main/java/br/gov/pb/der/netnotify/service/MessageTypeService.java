@@ -2,6 +2,7 @@ package br.gov.pb.der.netnotify.service;
 
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
@@ -16,11 +17,13 @@ public class MessageTypeService implements AbstractService<MessageType, Integer>
     private final MessageTypeRepository messageTypeRepository;
 
     @Override
+    @CacheEvict(value = "messageTypes", allEntries = true)
     public void save(MessageType messageType) {
         messageTypeRepository.save(messageType);
     }
 
     @Override
+    @CacheEvict(value = "messageTypes", allEntries = true)
     public void delete(MessageType messageType) {
         messageTypeRepository.delete(messageType);
     }

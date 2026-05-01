@@ -2,6 +2,7 @@ package br.gov.pb.der.netnotify.service;
 
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
@@ -16,11 +17,13 @@ public class LevelService implements AbstractService<Level, Integer> {
     private final LevelRepository levelRepository;
 
     @Override
+    @CacheEvict(value = "levels", allEntries = true)
     public void save(Level entity) {
         levelRepository.save(entity);
     }
 
     @Override
+    @CacheEvict(value = "levels", allEntries = true)
     public void delete(Level entity) {
         levelRepository.delete(entity);
     }

@@ -202,15 +202,28 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         // Filtros dinâmicos
 
         List<Predicate> predicates = new ArrayList<>();
-        predicates.add(cb.isNotNull(message.get(Message_.repeatIntervalMinutes)));
         LocalDateTime now = LocalDateTime.now();
-        // Exemplo de filtro adicional até o fim do dia (evita variável não usada)
-        predicates.add(
-                cb.and(
-                        cb.or(
-                                cb.isNull(message.get(Message_.lastSentAt)),
-                                cb.and(cb.isNotNull(message.get(Message_.expireAt)),
-                                        cb.greaterThan(message.get(Message_.expireAt), now)))));
+
+        // Apenas mensagens não expiradas
+        Predicate notExpired = cb.or(
+                cb.isNull(message.get(Message_.expireAt)),
+                cb.greaterThan(message.get(Message_.expireAt), now));
+        predicates.add(notExpired);
+
+        // Candidatos para envio:
+        //   A) Mensagens recorrentes (repeatIntervalMinutes IS NOT NULL e > 0)
+        //      — o filtro de intervalo é aplicado no loop Java abaixo
+        //   B) Mensagens únicas com publishedAt agendado que ainda não foram enviadas
+        //      (lastSentAt IS NULL) e cuja data de publicação já chegou
+        Predicate isRecurring = cb.and(
+                cb.isNotNull(message.get(Message_.repeatIntervalMinutes)),
+                cb.greaterThan(message.get(Message_.repeatIntervalMinutes), 0));
+        Predicate isFutureOneShotDue = cb.and(
+                cb.isNull(message.get(Message_.repeatIntervalMinutes)),
+                cb.isNull(message.get(Message_.lastSentAt)),
+                cb.isNotNull(message.get(Message_.publishedAt)),
+                cb.lessThanOrEqualTo(message.get(Message_.publishedAt), now));
+        predicates.add(cb.or(isRecurring, isFutureOneShotDue));
 
         if (!predicates.isEmpty()) {
             cq.where(cb.and(predicates.toArray(new Predicate[0])));
@@ -288,18 +301,31 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 ? List.of(AgentScope.EXTERNAL, AgentScope.BOTH)
                 : List.of(AgentScope.INTERNAL, AgentScope.BOTH);
 
+        // Critério de visibilidade para web agents:
+        // - Mensagens repetidas: sempre visíveis enquanto ativas (o cliente faz dedup por id+lastSentAt)
+        // - Mensagens únicas com publishedAt: visíveis se publicadas após 'since'
+        // - Mensagens imediatas (sem publishedAt): visíveis se criadas após 'since'
+        // - Nunca despachadas (lastSentAt IS NULL): garantia de entrega no primeiro poll
+        // Nota: lastSentAt é timestamp do broker (RabbitMQ) e não deve ser usado como filtro
+        // de visibilidade para web agents — os dois canais têm semânticas independentes.
         String jpql = """
                 SELECT DISTINCT m FROM Message m
                 LEFT JOIN FETCH m.level l
                 LEFT JOIN FETCH m.type t
                 LEFT JOIN FETCH m.user u
                 LEFT JOIN m.departments d
-                WHERE (m.lastSentAt IS NULL OR m.lastSentAt >= :since)
-                AND (m.expireAt IS NULL OR m.expireAt > :now)
+                WHERE (m.expireAt IS NULL OR m.expireAt > :now)
                 AND (m.publishedAt IS NULL OR m.publishedAt <= :now)
                 AND m.agentScope IN :scopes
-                AND (:departmentName IS NULL OR :departmentName = '' OR d.name = :departmentName OR m.departments IS EMPTY)
-                ORDER BY m.lastSentAt DESC
+                AND (:departmentName IS NULL OR :departmentName = ''
+                     OR LOWER(d.name) = :departmentName OR m.departments IS EMPTY)
+                AND (
+                    m.repeatIntervalMinutes IS NOT NULL
+                    OR (m.publishedAt IS NOT NULL AND m.publishedAt >= :since)
+                    OR (m.publishedAt IS NULL AND m.createdAt >= :since)
+                    OR m.lastSentAt IS NULL
+                )
+                ORDER BY COALESCE(m.publishedAt, m.createdAt) DESC
                 """;
 
         List<Message> messages = entityManager.createQuery(jpql, Message.class)

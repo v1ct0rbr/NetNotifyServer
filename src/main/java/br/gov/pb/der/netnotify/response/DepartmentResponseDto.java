@@ -25,6 +25,7 @@ public class DepartmentResponseDto implements Serializable {
     }
 
     @lombok.AllArgsConstructor
+    @lombok.NoArgsConstructor
     @lombok.Data
     public static class DepartmentInfo implements java.io.Serializable {
 
