@@ -25,6 +25,14 @@ public class MessageResponseDto implements Serializable {
     private Boolean sendToSubdivisions;
     private Integer repeatIntervalMinutes;
 
+    private String scheduleDaysOfWeek;
+
+    private String scheduleTimes;
+
+    private String scheduleMonthDays;
+
+    private String availabilityWindows;
+
     private LocalDateTime publishedAt;
     private LocalDateTime expireAt;
     private LocalDateTime lastSentAt;
@@ -43,6 +51,10 @@ public class MessageResponseDto implements Serializable {
         this.user = message.getUser().getUsername();
         this.createdAt = message.getCreatedAt();
         this.updatedAt = message.getUpdatedAt();
+        this.scheduleDaysOfWeek = message.getScheduleDaysOfWeek();
+        this.scheduleTimes = message.getScheduleTimes();
+        this.scheduleMonthDays = message.getScheduleMonthDays();
+        this.availabilityWindows = message.getAvailabilityWindows();
         if (message.getDepartments() != null) {
             this.departments = message.getDepartments().stream()
                     .map(d -> new DepartmentInfo(d.getId(), d.getName()))
@@ -52,7 +64,8 @@ public class MessageResponseDto implements Serializable {
 
     public MessageResponseDto(UUID id, String title, String content, String level, String messageType, String user,
             LocalDateTime createdAt, LocalDateTime updatedAt, LocalDateTime expireAt, LocalDateTime lastSentAt,
-            Integer repeatIntervalMinutes, Boolean sendToSubdivisions, LocalDateTime publishedAt, AgentScope agentScope) {
+            Integer repeatIntervalMinutes, Boolean sendToSubdivisions, LocalDateTime publishedAt, AgentScope agentScope,
+            String scheduleDaysOfWeek, String scheduleTimes, String scheduleMonthDays, String availabilityWindows) {
         this.id = id;
         this.title = title;
         this.content = content;
@@ -67,7 +80,10 @@ public class MessageResponseDto implements Serializable {
         this.lastSentAt = lastSentAt;
         this.publishedAt = publishedAt;
         this.agentScope = agentScope;
-
+        this.scheduleDaysOfWeek = scheduleDaysOfWeek;
+        this.scheduleTimes = scheduleTimes;
+        this.scheduleMonthDays = scheduleMonthDays;
+        this.availabilityWindows = availabilityWindows;
     }
 
     public String departmentsToString() {

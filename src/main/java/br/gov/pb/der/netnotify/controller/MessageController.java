@@ -1,7 +1,18 @@
 package br.gov.pb.der.netnotify.controller;
 
+import java.io.IOException;
+import java.time.LocalTime;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -52,6 +63,13 @@ public class MessageController {
 
     private final RabbitmqService rabbitmqService;
 
+    @GetMapping("/get-default-office-hours-window")
+    public ResponseEntity<SimpleResponseUtils<String>> getDefaultOfficeHoursWindow() {
+        String defaultOfficeHoursWindow = messageService.getDefaultOfficeHoursWindow();
+        return ResponseEntity.ok(SimpleResponseUtils.success(defaultOfficeHoursWindow,
+                "Janela de horário comercial padrão obtida com sucesso."));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<SimpleResponseUtils<MessageResponseDto>> getMessageById(@PathVariable UUID id) {
         Message message = messageService.findById(id);
@@ -95,20 +113,37 @@ public class MessageController {
             // Garante que o usuário local exista (cria se ainda não sincronizado)
             message.setUser(userService.getOrCreateUser());
             message.setSendToSubdivisions(messageDto.getSendToSubdivisions());
-            message.setAgentScope(messageDto.getAgentScope() != null ? messageDto.getAgentScope() : br.gov.pb.der.netnotify.model.AgentScope.BOTH);
+            message.setAgentScope(messageDto.getAgentScope() != null ? messageDto.getAgentScope()
+                    : br.gov.pb.der.netnotify.model.AgentScope.BOTH);
             message.setExpireAt(messageDto.getExpireAt());
             message.setPublishedAt(messageDto.getPublishedAt());
-            // Valor 0 significa "sem repetição" — trata como null para não disparar o scheduler
+            // Valor 0 significa "sem repetição" — trata como null para não disparar o
+            // scheduler
             Integer interval = messageDto.getRepeatIntervalMinutes();
             message.setRepeatIntervalMinutes((interval != null && interval > 0) ? interval : null);
+            // Campos de programação por horário fixo
+            if (messageDto.getScheduleDaysOfWeek() != null && !messageDto.getScheduleDaysOfWeek().isBlank()) {
+                message.setScheduleDaysOfWeek(messageDto.getScheduleDaysOfWeek());
+                message.setScheduleTimes(messageDto.getScheduleTimes());
+                message.setRepeatIntervalMinutes(null);
+            } else if (messageDto.getScheduleMonthDays() != null && !messageDto.getScheduleMonthDays().isBlank()) {
+                message.setScheduleMonthDays(messageDto.getScheduleMonthDays());
+                message.setScheduleTimes(messageDto.getScheduleTimes());
+                message.setRepeatIntervalMinutes(null);
+            }
+            if (messageDto.getAvailabilityWindows() != null && !messageDto.getAvailabilityWindows().isBlank()) {
+                message.setAvailabilityWindows(messageDto.getAvailabilityWindows());
+            }
             message.setDepartments(messageDto.getDepartments().stream()
                     .map(deptId -> departmentService.findById(deptId))
                     .filter(dept -> dept != null)
                     .toList());
 
             messageService.save(message);
-            if (message.getPublishedAt() == null
-                    || (message.getPublishedAt() != null && !message.getPublishedAt().isAfter(LocalDateTime.now()))) {
+            boolean hasSchedule = (message.getScheduleDaysOfWeek() != null || message.getScheduleMonthDays() != null);
+            boolean isDelayed = message.getPublishedAt() != null
+                    && message.getPublishedAt().isAfter(LocalDateTime.now());
+            if (!hasSchedule && !isDelayed) {
                 messageService.sendNotification(message);
             }
             return ResponseEntity.ok(SimpleResponseUtils.success(message.getId(), "Mensagem salva com sucesso."));
@@ -152,13 +187,113 @@ public class MessageController {
         if (messageDto.getPublishedAt() != null && messageDto.getPublishedAt().isBefore(now)) {
             bindingResult.rejectValue("publishedAt", "Invalid", "A data de publicação deve ser no futuro.");
         }
-
-        if (messageDto.getExpireAt() != null && !Functions.isNumberValid(messageDto.getRepeatIntervalMinutes())) {
+        if (messageDto.getRepeatIntervalMinutes() != null
+                && !Functions.isNumberValid(messageDto.getRepeatIntervalMinutes())) {
             bindingResult.rejectValue("repeatIntervalMinutes", "Invalid",
-                    "O intervalo de repetição deve ser maior ou igual a zero.");
+                    "O intervalo de repetição deve ser maior que zero.");
+        }
+        // scheduleDaysOfWeek e scheduleMonthDays são mutuamente exclusivos
+        boolean hasDays = messageDto.getScheduleDaysOfWeek() != null && !messageDto.getScheduleDaysOfWeek().isBlank();
+        boolean hasMonthDays = messageDto.getScheduleMonthDays() != null
+                && !messageDto.getScheduleMonthDays().isBlank();
+        if (hasDays && hasMonthDays) {
+            bindingResult.rejectValue("scheduleDaysOfWeek", "Invalid",
+                    "Não é possível combinar agendamento semanal e mensal.");
+        }
+
+        if (messageDto.getAvailabilityWindows() != null && !messageDto.getAvailabilityWindows().isBlank()) {
+            validateAvailabilityWindows(messageDto.getAvailabilityWindows(), bindingResult);
         }
 
         return !bindingResult.hasErrors();
+    }
+
+    private void validateAvailabilityWindows(String availabilityWindowsJson, BindingResult bindingResult) {
+        List<Map<String, Object>> windows;
+        try {
+            ObjectMapper om = new ObjectMapper();
+            windows = om.readValue(availabilityWindowsJson, new TypeReference<List<Map<String, Object>>>() {
+            });
+        } catch (IOException | RuntimeException ex) {
+            bindingResult.rejectValue("availabilityWindows", "Invalid",
+                    "Formato de janelas de disponibilidade inválido.");
+            return;
+        }
+
+        Map<Integer, List<int[]>> intervalsByDay = new HashMap<>();
+
+        for (int i = 0; i < windows.size(); i++) {
+            Map<String, Object> window = windows.get(i);
+            if (window == null) {
+                bindingResult.rejectValue("availabilityWindows", "Invalid",
+                        "Janela de disponibilidade inválida.");
+                continue;
+            }
+
+            Integer day = parseDay(window.get("day"));
+            if (day == null || day < 1 || day > 7) {
+                bindingResult.rejectValue("availabilityWindows", "Invalid",
+                        "Dia da janela de disponibilidade deve estar entre 1 e 7.");
+                continue;
+            }
+
+            String startTimeRaw = window.get("startTime") != null ? window.get("startTime").toString() : null;
+            String endTimeRaw = window.get("endTime") != null ? window.get("endTime").toString() : null;
+
+            LocalTime start = parseTime(startTimeRaw);
+            LocalTime end = parseTime(endTimeRaw);
+
+            if (start == null || end == null) {
+                bindingResult.rejectValue("availabilityWindows", "Invalid",
+                        "Horários da janela de disponibilidade devem estar no formato HH:mm.");
+                continue;
+            }
+
+            if (!start.isBefore(end)) {
+                bindingResult.rejectValue("availabilityWindows", "Invalid",
+                        "Horário inicial deve ser menor que o horário final nas janelas de disponibilidade.");
+                continue;
+            }
+
+            intervalsByDay.computeIfAbsent(day, ignored -> new ArrayList<>())
+                    .add(new int[] { start.toSecondOfDay(), end.toSecondOfDay() });
+        }
+
+        for (Map.Entry<Integer, List<int[]>> entry : intervalsByDay.entrySet()) {
+            List<int[]> intervals = entry.getValue();
+            intervals.sort(Comparator.comparingInt(interval -> interval[0]));
+            for (int i = 1; i < intervals.size(); i++) {
+                int[] previous = intervals.get(i - 1);
+                int[] current = intervals.get(i);
+                if (current[0] < previous[1]) {
+                    bindingResult.rejectValue("availabilityWindows", "Invalid",
+                            "Existem janelas de disponibilidade sobrepostas no mesmo dia.");
+                    return;
+                }
+            }
+        }
+    }
+
+    private Integer parseDay(Object value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(value.toString().trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private LocalTime parseTime(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalTime.parse(value.trim());
+        } catch (DateTimeParseException ex) {
+            return null;
+        }
     }
 
 }

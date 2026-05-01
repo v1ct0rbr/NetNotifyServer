@@ -25,60 +25,62 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 @EnableCaching
 public class CacheConfig {
 
-    public static final String MESSAGE_TYPES = "messageTypes";
-    public static final String LEVELS = "levels";
-    public static final String DEPARTMENTS = "departments";
-    public static final String AGENT_MESSAGES = "agentMessages";
+        public static final String MESSAGE_TYPES = "messageTypes";
+        public static final String LEVELS = "levels";
+        public static final String DEPARTMENTS = "departments";
+        public static final String AGENT_MESSAGES = "agentMessages";
+        public static final String DEFAULT_OFFICE_HOURS_WINDOW = "defaultOfficeHoursWindow";
 
-    /**
-     * ObjectMapper exclusivo para serialização Redis/Dragonfly.
-     * Usa default typing para preservar informação de tipo no JSON,
-     * necessário para deserialização correta de objetos polimórficos.
-     * Mantido separado do ObjectMapper HTTP para não poluir respostas de API.
-     */
-    @Bean("redisCacheObjectMapper")
-    public ObjectMapper redisCacheObjectMapper() {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());
-        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        mapper.activateDefaultTyping(
-                mapper.getPolymorphicTypeValidator(),
-                ObjectMapper.DefaultTyping.NON_FINAL,
-                JsonTypeInfo.As.PROPERTY);
-        return mapper;
-    }
+        /**
+         * ObjectMapper exclusivo para serialização Redis/Dragonfly.
+         * Usa default typing para preservar informação de tipo no JSON,
+         * necessário para deserialização correta de objetos polimórficos.
+         * Mantido separado do ObjectMapper HTTP para não poluir respostas de API.
+         */
+        @Bean("redisCacheObjectMapper")
+        public ObjectMapper redisCacheObjectMapper() {
+                ObjectMapper mapper = new ObjectMapper();
+                mapper.registerModule(new JavaTimeModule());
+                mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+                mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+                mapper.activateDefaultTyping(
+                                mapper.getPolymorphicTypeValidator(),
+                                ObjectMapper.DefaultTyping.NON_FINAL,
+                                JsonTypeInfo.As.PROPERTY);
+                return mapper;
+        }
 
-    /**
-     * Serializador JSON compartilhado entre RedisTemplate e RedisCacheManager,
-     * evitando divergência de configuração entre os dois usos do Redis.
-     */
-    @Bean
-    public GenericJackson2JsonRedisSerializer redisCacheSerializer() {
-        return new GenericJackson2JsonRedisSerializer(redisCacheObjectMapper());
-    }
+        /**
+         * Serializador JSON compartilhado entre RedisTemplate e RedisCacheManager,
+         * evitando divergência de configuração entre os dois usos do Redis.
+         */
+        @Bean
+        public GenericJackson2JsonRedisSerializer redisCacheSerializer() {
+                return new GenericJackson2JsonRedisSerializer(redisCacheObjectMapper());
+        }
 
-    @Bean
-    public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        RedisCacheConfiguration baseConfig = RedisCacheConfiguration.defaultCacheConfig()
-                .serializeKeysWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(new StringRedisSerializer()))
-                .serializeValuesWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(redisCacheSerializer()))
-                .disableCachingNullValues();
+        @Bean
+        public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+                RedisCacheConfiguration baseConfig = RedisCacheConfiguration.defaultCacheConfig()
+                                .serializeKeysWith(RedisSerializationContext.SerializationPair
+                                                .fromSerializer(new StringRedisSerializer()))
+                                .serializeValuesWith(RedisSerializationContext.SerializationPair
+                                                .fromSerializer(redisCacheSerializer()))
+                                .disableCachingNullValues();
 
-        Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
-        // Tipos e níveis raramente mudam — TTL longo
-        cacheConfigurations.put(MESSAGE_TYPES, baseConfig.entryTtl(Duration.ofHours(1)));
-        cacheConfigurations.put(LEVELS, baseConfig.entryTtl(Duration.ofHours(1)));
-        // Departamentos mudam com menos frequência que mensagens
-        cacheConfigurations.put(DEPARTMENTS, baseConfig.entryTtl(Duration.ofMinutes(30)));
-        // Respostas para agentes — TTL curto para garantir frescor entre polls
-        cacheConfigurations.put(AGENT_MESSAGES, baseConfig.entryTtl(Duration.ofSeconds(30)));
+                Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
+                // Tipos e níveis raramente mudam — TTL longo
+                cacheConfigurations.put(MESSAGE_TYPES, baseConfig.entryTtl(Duration.ofHours(1)));
+                cacheConfigurations.put(LEVELS, baseConfig.entryTtl(Duration.ofHours(1)));
+                // Departamentos mudam com menos frequência que mensagens
+                cacheConfigurations.put(DEPARTMENTS, baseConfig.entryTtl(Duration.ofMinutes(30)));
+                // Respostas para agentes — TTL curto para garantir frescor entre polls
+                cacheConfigurations.put(AGENT_MESSAGES, baseConfig.entryTtl(Duration.ofSeconds(30)));
+                cacheConfigurations.put(DEFAULT_OFFICE_HOURS_WINDOW, baseConfig.entryTtl(Duration.ofMinutes(60)));
 
-        return RedisCacheManager.builder(connectionFactory)
-                .cacheDefaults(baseConfig.entryTtl(Duration.ofMinutes(5)))
-                .withInitialCacheConfigurations(cacheConfigurations)
-                .build();
-    }
+                return RedisCacheManager.builder(connectionFactory)
+                                .cacheDefaults(baseConfig.entryTtl(Duration.ofMinutes(5)))
+                                .withInitialCacheConfigurations(cacheConfigurations)
+                                .build();
+        }
 }

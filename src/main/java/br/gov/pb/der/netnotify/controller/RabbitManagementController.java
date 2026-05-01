@@ -23,7 +23,9 @@ import lombok.RequiredArgsConstructor;
 /**
  * Endpoints de gerenciamento de agentes conectados ao RabbitMQ.
  *
- * <p>Todos os endpoints exigem autenticação com role ADMIN (veja SecurityConfiguration).
+ * <p>
+ * Todos os endpoints exigem autenticação com role ADMIN (veja
+ * SecurityConfiguration).
  */
 @RestController
 @RequestMapping("/rabbit")
@@ -51,7 +53,9 @@ public class RabbitManagementController {
     /**
      * Envia uma mensagem isolada diretamente para a fila de um agente específico.
      *
-     * <p>O nome da fila deve ser exatamente o valor retornado no campo {@code queueName}
+     * <p>
+     * O nome da fila deve ser exatamente o valor retornado no campo
+     * {@code queueName}
      * do endpoint {@code GET /rabbit/agents}.
      *
      * @param queueName nome da fila de destino (path variable, URL-encoded)
@@ -62,9 +66,16 @@ public class RabbitManagementController {
             @PathVariable String queueName,
             @RequestBody DirectNotifyRequest request) {
 
+        if (request == null || isBlank(request.getContent())) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Conteúdo da mensagem é obrigatório."));
+        }
+
+        DirectNotifyRequest normalized = normalizeDirectNotifyRequest(request);
+
         String json;
         try {
-            json = objectMapper.writeValueAsString(request);
+            json = objectMapper.writeValueAsString(normalized);
         } catch (JsonProcessingException e) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Falha ao serializar payload: " + e.getMessage()));
@@ -75,5 +86,31 @@ public class RabbitManagementController {
         return ResponseEntity.ok(Map.of(
                 "status", "enviado",
                 "queue", queueName));
+    }
+
+    private DirectNotifyRequest normalizeDirectNotifyRequest(DirectNotifyRequest request) {
+        DirectNotifyRequest normalized = new DirectNotifyRequest();
+        normalized.setTitle(trimToNull(request.getTitle()));
+        normalized.setContent(request.getContent().trim());
+        normalized.setLevel(defaultIfBlank(request.getLevel(), "Normal"));
+        normalized.setType(defaultIfBlank(request.getType(), "Notificação"));
+        return normalized;
+    }
+
+    private String defaultIfBlank(String value, String defaultValue) {
+        String trimmed = trimToNull(value);
+        return trimmed != null ? trimmed : defaultValue;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

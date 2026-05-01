@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import br.gov.pb.der.netnotify.config.CacheConfig;
 import br.gov.pb.der.netnotify.dto.AgentMessageDto;
 import br.gov.pb.der.netnotify.dto.MessageDto;
 import br.gov.pb.der.netnotify.filter.MessageFilter;
@@ -33,6 +35,9 @@ public class MessageService implements AbstractService<Message, UUID> {
 
     @Lazy
     private final RabbitmqService rabbitmqService;
+
+    @Value("${app.default-office-hours-windows}")
+    private String defaultOfficeHoursWindow;
 
     @Override
     @Caching(evict = {
@@ -100,12 +105,16 @@ public class MessageService implements AbstractService<Message, UUID> {
     }
 
     /**
-     * Retorna mensagens ativas para um agente web, com base no tipo (internal/external),
+     * Retorna mensagens ativas para um agente web, com base no tipo
+     * (internal/external),
      * departamento e janela de tempo {@code since}.
      * <p>
-     * Não é cacheado: {@code since} varia em cada request e uma chave de cache sem ele
-     * produziria resultados incorretos (agentes com janelas distintas receberiam os dados
-     * do primeiro que fez o cache). A latência do Dragonfly é baixa o suficiente para
+     * Não é cacheado: {@code since} varia em cada request e uma chave de cache sem
+     * ele
+     * produziria resultados incorretos (agentes com janelas distintas receberiam os
+     * dados
+     * do primeiro que fez o cache). A latência do Dragonfly é baixa o suficiente
+     * para
      * queries simples sem camada adicional de cache.
      */
     public List<AgentMessageDto> findMessagesForAgent(String agentType, String departmentName,
@@ -167,6 +176,11 @@ public class MessageService implements AbstractService<Message, UUID> {
 
     public Integer updateLastSentAtById(UUID id, java.time.LocalDateTime lastSentAt) {
         return messageRepository.updateLastSentAtById(id, lastSentAt);
+    }
+
+    @Cacheable(value = CacheConfig.DEFAULT_OFFICE_HOURS_WINDOW, key = "'default_office_hours_window'")
+    public String getDefaultOfficeHoursWindow() {
+        return defaultOfficeHoursWindow;
     }
 
 }

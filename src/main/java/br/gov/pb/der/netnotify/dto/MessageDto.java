@@ -49,6 +49,18 @@ public class MessageDto implements java.io.Serializable {
     @JsonProperty("repeatIntervalMinutes")
     private Integer repeatIntervalMinutes;
 
+    @JsonProperty("scheduleDaysOfWeek")
+    private String scheduleDaysOfWeek;
+
+    @JsonProperty("scheduleTimes")
+    private String scheduleTimes;
+
+    @JsonProperty("scheduleMonthDays")
+    private String scheduleMonthDays;
+
+    @JsonProperty("availabilityWindows")
+    private String availabilityWindows;
+
     @JsonProperty("publishedAt")
     @DateTimeFormat(pattern = "dd-MM-yyyy HH:mm")
     private LocalDateTime publishedAt;
@@ -83,6 +95,11 @@ public class MessageDto implements java.io.Serializable {
         dto.setAgentScope(message.getAgentScope());
         dto.setExpireAt(message.getExpireAt());
         dto.setPublishedAt(message.getPublishedAt());
+        dto.setRepeatIntervalMinutes(message.getRepeatIntervalMinutes());
+        dto.setScheduleDaysOfWeek(message.getScheduleDaysOfWeek());
+        dto.setScheduleTimes(message.getScheduleTimes());
+        dto.setScheduleMonthDays(message.getScheduleMonthDays());
+        dto.setAvailabilityWindows(message.getAvailabilityWindows());
         if (message.getDepartments() != null) {
             dto.setDepartments(
                     message.getDepartments().stream().map(Department::getId).toList());

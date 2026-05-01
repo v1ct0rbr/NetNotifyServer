@@ -1,7 +1,8 @@
 package br.gov.pb.der.netnotify.service;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import java.net.InetAddress;
+import java.net.URI;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -24,7 +25,9 @@ import br.gov.pb.der.netnotify.dto.RabbitAgentDto;
  * Consulta a Management HTTP API do RabbitMQ para listar agentes conectados e
  * publicar mensagens isoladas diretamente em filas individuais.
  *
- * <p>Requer que o usuário configurado em {@code spring.rabbitmq.management.username}
+ * <p>
+ * Requer que o usuário configurado em
+ * {@code spring.rabbitmq.management.username}
  * possua a tag {@code management} ou {@code administrator} no RabbitMQ.
  */
 @Service
@@ -35,10 +38,10 @@ public class RabbitManagementService {
     private static final String PREFIX_AGENT = "queue_agent_";
     private static final String PREFIX_DEPT = "queue_department_";
 
-    private final RabbitmqService rabbitmqService;
+    private final br.gov.pb.der.netnotify.service.RabbitmqService rabbitmqService;
 
-    @Value("${spring.rabbitmq.host}")
-    private String rabbitHost;
+    @Value("${spring.rabbitmq.management.host:${spring.rabbitmq.host:localhost}}")
+    private String managementHost;
 
     @Value("${spring.rabbitmq.virtual-host:/}")
     private String virtualHost;
@@ -52,7 +55,7 @@ public class RabbitManagementService {
     @Value("${spring.rabbitmq.management.password:guest}")
     private String managementPassword;
 
-    public RabbitManagementService(RabbitmqService rabbitmqService) {
+    public RabbitManagementService(br.gov.pb.der.netnotify.service.RabbitmqService rabbitmqService) {
         this.rabbitmqService = rabbitmqService;
     }
 
@@ -68,17 +71,23 @@ public class RabbitManagementService {
      * @return lista de agentes com informações de fila, IP e mensagens pendentes
      */
     public List<RabbitAgentDto> listConnectedAgents(String sortBy, String direction) {
-        String encodedVhost = encodeVhost(virtualHost);
-        List<Map<String, Object>> consumers = fetchConsumers(encodedVhost);
-        Map<String, Integer> queueMessages = fetchQueueMessageCounts(encodedVhost);
+        String targetVhost = normalizeVhost(virtualHost);
+        List<Map<String, Object>> consumers = fetchConsumers();
+        Map<String, QueueStats> queueStats = fetchQueueStats(targetVhost);
 
-        List<RabbitAgentDto> agents = buildAgentList(consumers, queueMessages);
+        List<RabbitAgentDto> agents = buildAgentList(consumers, queueStats, targetVhost);
+        if (agents.isEmpty()) {
+            // Em algumas permissões/tags do RabbitMQ Management API, /api/consumers pode
+            // retornar vazio mesmo com filas ativas. Nesse caso, fazemos fallback por fila.
+            agents = buildAgentListFromQueues(queueStats);
+        }
 
         return sort(agents, sortBy, direction);
     }
 
     /**
-     * Envia uma mensagem JSON diretamente para uma fila pelo nome (exchange padrão).
+     * Envia uma mensagem JSON diretamente para uma fila pelo nome (exchange
+     * padrão).
      *
      * @param queueName nome exato da fila
      * @param jsonBody  conteúdo JSON a ser publicado
@@ -91,15 +100,15 @@ public class RabbitManagementService {
     // Management API calls
     // -------------------------------------------------------------------------
 
-    @SuppressWarnings("unchecked")
-    private List<Map<String, Object>> fetchConsumers(String encodedVhost) {
-        String url = buildManagementUrl("/api/consumers/" + encodedVhost);
+    private List<Map<String, Object>> fetchConsumers() {
+        String url = buildManagementUrl("/api/consumers");
         try {
             List<Map<String, Object>> result = createWebClient()
                     .get()
-                    .uri(url)
+                    .uri(URI.create(url))
                     .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
+                    .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {
+                    })
                     .block();
             return result != null ? result : List.of();
         } catch (WebClientResponseException e) {
@@ -107,33 +116,54 @@ public class RabbitManagementService {
                     url, e.getStatusCode(), e.getResponseBodyAsString());
             return List.of();
         } catch (Exception e) {
-            log.error("Erro inesperado ao consultar consumers RabbitMQ Management API: {}", e.getMessage());
+            log.error(
+                    "Erro inesperado ao consultar consumers RabbitMQ Management API [{}] (host={}, port={}): {}",
+                    url,
+                    managementHost,
+                    managementPort,
+                    e.getMessage());
             return List.of();
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private Map<String, Integer> fetchQueueMessageCounts(String encodedVhost) {
-        String url = buildManagementUrl("/api/queues/" + encodedVhost);
+    private Map<String, QueueStats> fetchQueueStats(String targetVhost) {
+        String url = buildManagementUrl("/api/queues");
         try {
             List<Map<String, Object>> queues = createWebClient()
                     .get()
-                    .uri(url)
+                    .uri(URI.create(url))
                     .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
+                    .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {
+                    })
                     .block();
 
-            if (queues == null) return Map.of();
+            if (queues == null)
+                return Map.of();
 
-            Map<String, Integer> counts = new HashMap<>();
+            Map<String, QueueStats> stats = new HashMap<>();
             for (Map<String, Object> q : queues) {
                 String name = (String) q.get("name");
-                Object messages = q.getOrDefault("messages", 0);
-                counts.put(name, ((Number) messages).intValue());
+                String queueVhost = normalizeVhost((String) q.get("vhost"));
+                if (!isSameVhost(targetVhost, queueVhost))
+                    continue;
+                if (name == null)
+                    continue;
+
+                Object messagesObj = q.getOrDefault("messages", 0);
+                Object consumersObj = q.getOrDefault("consumers", 0);
+                int messages = messagesObj instanceof Number ? ((Number) messagesObj).intValue() : 0;
+                int consumers = consumersObj instanceof Number ? ((Number) consumersObj).intValue() : 0;
+
+                stats.put(name, new QueueStats(messages, consumers));
             }
-            return counts;
+            return stats;
         } catch (Exception e) {
-            log.warn("Não foi possível obter contagem de mensagens das filas: {}", e.getMessage());
+            log.warn(
+                    "Não foi possível obter contagem de mensagens das filas via RabbitMQ Management API [{}] (host={}, port={}): {}",
+                    url,
+                    managementHost,
+                    managementPort,
+                    e.getMessage());
             return Map.of();
         }
     }
@@ -145,7 +175,8 @@ public class RabbitManagementService {
     @SuppressWarnings("unchecked")
     private List<RabbitAgentDto> buildAgentList(
             List<Map<String, Object>> consumers,
-            Map<String, Integer> queueMessages) {
+            Map<String, QueueStats> queueStats,
+            String targetVhost) {
 
         List<RabbitAgentDto> agents = new ArrayList<>();
         Set<String> seen = new HashSet<>();
@@ -154,30 +185,85 @@ public class RabbitManagementService {
             Map<String, Object> queueInfo = (Map<String, Object>) consumer.get("queue");
             Map<String, Object> channelDetails = (Map<String, Object>) consumer.get("channel_details");
 
-            if (queueInfo == null || channelDetails == null) continue;
+            if (queueInfo == null || channelDetails == null)
+                continue;
 
             String queueName = (String) queueInfo.get("name");
-            if (queueName == null) continue;
-            if (!queueName.startsWith(PREFIX_AGENT) && !queueName.startsWith(PREFIX_DEPT)) continue;
+            String queueVhost = normalizeVhost((String) queueInfo.get("vhost"));
+            if (queueName == null)
+                continue;
+            if (!isSameVhost(targetVhost, queueVhost))
+                continue;
+            if (!queueName.startsWith(PREFIX_DEPT))
+                continue;
 
-            String peerHost = (String) channelDetails.get("peer_address");
+            String rawPeerAddress = asString(channelDetails.get("peer_address"));
+            String peerHost = extractPeerHost(rawPeerAddress);
+            if (isBlank(peerHost)) {
+                peerHost = asString(channelDetails.get("peer_host"));
+            }
             Object peerPortObj = channelDetails.getOrDefault("peer_port", 0);
-            int peerPort = ((Number) peerPortObj).intValue();
+            int peerPort = numberToInt(peerPortObj, extractPeerPort(rawPeerAddress));
 
-            // Deduplica por fila + IP (um agente pode ter múltiplos consumers na mesma fila)
-            String dedupKey = queueName + "|" + peerHost + ":" + peerPort;
-            if (!seen.add(dedupKey)) continue;
+            String resolvedPeerHost = bestEffortResolveIp(peerHost);
+            if (isBlank(resolvedPeerHost)) {
+                resolvedPeerHost = "N/D";
+            }
+
+            // Deduplica por fila + IP (um agente pode ter múltiplos consumers na mesma
+            // fila)
+            String dedupKey = queueName + "|" + resolvedPeerHost + ":" + peerPort;
+            if (!seen.add(dedupKey))
+                continue;
 
             String connectionName = (String) channelDetails.get("connection_name");
 
             RabbitAgentDto dto = parseQueueName(queueName);
-            dto.setPeerHost(peerHost);
+            dto.setPeerHost(resolvedPeerHost);
             dto.setPeerPort(peerPort);
-            dto.setPeerAddress(peerHost + ":" + peerPort);
+            dto.setPeerAddress(resolvedPeerHost);
             dto.setConnectionName(connectionName);
-            dto.setMessageCount(queueMessages.getOrDefault(queueName, 0));
+            dto.setMessageCount(queueStats.getOrDefault(queueName, QueueStats.ZERO).messageCount());
 
             agents.add(dto);
+        }
+
+        return agents;
+    }
+
+    private List<RabbitAgentDto> buildAgentListFromQueues(Map<String, QueueStats> queueStats) {
+        List<RabbitAgentDto> agents = new ArrayList<>();
+
+        for (Map.Entry<String, QueueStats> entry : queueStats.entrySet()) {
+            String queueName = entry.getKey();
+            QueueStats stats = entry.getValue();
+
+            if (queueName == null)
+                continue;
+            if (!queueName.startsWith(PREFIX_DEPT))
+                continue;
+            if (stats.consumerCount() <= 0)
+                continue;
+
+            RabbitAgentDto dto = parseQueueName(queueName);
+            String resolvedPeerHost = bestEffortResolveIp(dto.getAgentHostname());
+            if (isBlank(resolvedPeerHost)) {
+                resolvedPeerHost = dto.getAgentHostname();
+            }
+            if (isBlank(resolvedPeerHost)) {
+                resolvedPeerHost = "N/D";
+            }
+
+            dto.setPeerHost(resolvedPeerHost);
+            dto.setPeerPort(0);
+            dto.setPeerAddress(resolvedPeerHost);
+            dto.setConnectionName(null);
+            dto.setMessageCount(stats.messageCount());
+            agents.add(dto);
+        }
+
+        if (!agents.isEmpty()) {
+            log.info("Fallback de agentes por filas aplicado: {} agente(s) detectado(s).", agents.size());
         }
 
         return agents;
@@ -186,18 +272,24 @@ public class RabbitManagementService {
     /**
      * Extrai tipo, hostname e departamento a partir do nome da fila.
      *
-     * <p>Convenção do agente:
+     * <p>
+     * Convenção do agente:
      * <ul>
-     *   <li>{@code queue_agent_{hostname}} — fila de broadcast geral</li>
-     *   <li>{@code queue_department_{dept}_{hostname}} — fila de departamento</li>
+     * <li>{@code queue_agent_{hostname}} — fila de broadcast geral</li>
+     * <li>{@code queue_department_{dept}_{hostname}} — fila de departamento</li>
      * </ul>
      *
-     * <p>Estratégia de parse para departamento: o hostname é gerado pelo agente apenas
-     * com {@code [a-zA-Z0-9\-_]}, enquanto o dept é sempre lowercase.  Encontramos o
-     * hostname como o maior sufixo sem letras maiúsculas (após o último separador entre
-     * dept e hostname).  Como não há delimitador fixo, reportamos o sufixo após a última
-     * ocorrência de {@code _} como candidato a hostname, e o restante como dept — isso
-     * funciona para hostnames simples; nomes de host compostos terão o dept com underscores.
+     * <p>
+     * Estratégia de parse para departamento: o hostname é gerado pelo agente apenas
+     * com {@code [a-zA-Z0-9\-_]}, enquanto o dept é sempre lowercase. Encontramos o
+     * hostname como o maior sufixo sem letras maiúsculas (após o último separador
+     * entre
+     * dept e hostname). Como não há delimitador fixo, reportamos o sufixo após a
+     * última
+     * ocorrência de {@code _} como candidato a hostname, e o restante como dept —
+     * isso
+     * funciona para hostnames simples; nomes de host compostos terão o dept com
+     * underscores.
      */
     private RabbitAgentDto parseQueueName(String queueName) {
         RabbitAgentDto dto = new RabbitAgentDto();
@@ -261,11 +353,108 @@ public class RabbitManagementService {
     }
 
     private String buildManagementUrl(String path) {
-        return "http://" + rabbitHost + ":" + managementPort + path;
+        return "http://" + managementHost + ":" + managementPort + path;
     }
 
-    private String encodeVhost(String vhost) {
-        if ("/".equals(vhost)) return "%2F";
-        return URLEncoder.encode(vhost, StandardCharsets.UTF_8);
+    private String normalizeVhost(String vhost) {
+        return (vhost == null || vhost.isBlank()) ? "/" : vhost;
+    }
+
+    private boolean isSameVhost(String left, String right) {
+        return normalizeVhost(left).equals(normalizeVhost(right));
+    }
+
+    private String asString(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private int numberToInt(Object value, int fallback) {
+        return value instanceof Number ? ((Number) value).intValue() : fallback;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private String extractPeerHost(String rawPeerAddress) {
+        if (isBlank(rawPeerAddress)) {
+            return null;
+        }
+
+        String peerAddress = rawPeerAddress.trim();
+
+        // IPv6 entre colchetes: [fe80::1]:1234
+        if (peerAddress.startsWith("[")) {
+            int closeIdx = peerAddress.indexOf(']');
+            if (closeIdx > 1) {
+                return peerAddress.substring(1, closeIdx);
+            }
+            return peerAddress;
+        }
+
+        int firstColon = peerAddress.indexOf(':');
+        int lastColon = peerAddress.lastIndexOf(':');
+
+        // Hostname/IPv4 com porta: 127.0.0.1:54321
+        if (firstColon > 0 && firstColon == lastColon) {
+            return peerAddress.substring(0, firstColon);
+        }
+
+        // IPv6 sem colchetes (sem porta explícita)
+        return peerAddress;
+    }
+
+    private int extractPeerPort(String rawPeerAddress) {
+        if (isBlank(rawPeerAddress)) {
+            return 0;
+        }
+
+        String peerAddress = rawPeerAddress.trim();
+
+        if (peerAddress.startsWith("[")) {
+            int closeIdx = peerAddress.indexOf(']');
+            if (closeIdx > 0 && closeIdx + 2 <= peerAddress.length() && peerAddress.charAt(closeIdx + 1) == ':') {
+                return safeParseInt(peerAddress.substring(closeIdx + 2), 0);
+            }
+            return 0;
+        }
+
+        int firstColon = peerAddress.indexOf(':');
+        int lastColon = peerAddress.lastIndexOf(':');
+        if (firstColon > 0 && firstColon == lastColon && lastColon + 1 < peerAddress.length()) {
+            return safeParseInt(peerAddress.substring(lastColon + 1), 0);
+        }
+
+        return 0;
+    }
+
+    private int safeParseInt(String value, int fallback) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
+    private String bestEffortResolveIp(String hostOrIp) {
+        if (isBlank(hostOrIp)) {
+            return null;
+        }
+
+        String value = hostOrIp.trim();
+        // Já parece IPv4
+        if (value.matches("^\\d{1,3}(?:\\.\\d{1,3}){3}$")) {
+            return value;
+        }
+
+        try {
+            return InetAddress.getByName(value).getHostAddress();
+        } catch (UnknownHostException e) {
+            return value;
+        }
+    }
+
+    private record QueueStats(int messageCount, int consumerCount) {
+        private static final QueueStats ZERO = new QueueStats(0, 0);
     }
 }

@@ -6,6 +6,8 @@ services:
       dockerfile: Dockerfile
     container_name: netnotify-server
     depends_on:
+      netnotify-flyway:
+        condition: service_completed_successfully
       netnotify-rabbitmq:
         condition: service_healthy
       netnotify-postgres:
@@ -55,7 +57,7 @@ services:
     container_name: netnotify-rabbitmq    
     ports:
       - "5673:5672"   # Porta padrão do RabbitMQ para clientes
-      - "15673:15672" # Porta para o painel de administração do RabbitMQ
+      - "${RABBITMQ_MANAGEMENT_PORT}:15672" # Porta para o painel de administração do RabbitMQ
     environment:
       # Credenciais padrão do RabbitMQ (reconhecidas nativamente)
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}

@@ -1,12 +1,20 @@
 package br.gov.pb.der.netnotify.repository.impl;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
@@ -36,6 +44,9 @@ import jakarta.persistence.criteria.Root;
 @Repository
 public class MessageRepositoryImpl implements MessageRepositoryCustom {
 
+    @Value("${app.default-office-hours-windows:[{\"day\":\"1\",\"startTime\":\"08:00\",\"endTime\":\"17:00\"},{\"day\":\"2\",\"startTime\":\"08:00\",\"endTime\":\"17:00\"},{\"day\":\"3\",\"startTime\":\"08:00\",\"endTime\":\"17:00\"},{\"day\":\"4\",\"startTime\":\"08:00\",\"endTime\":\"17:00\"},{\"day\":\"5\",\"startTime\":\"08:00\",\"endTime\":\"17:00\"}]}")
+    private String defaultOfficeHoursWindowsJson;
+
     @PersistenceContext
     EntityManager entityManager;
 
@@ -64,7 +75,11 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 message.get(Message_.repeatIntervalMinutes),
                 message.get(Message_.sendToSubdivisions),
                 message.get(Message_.publishedAt),
-                message.get(Message_.agentScope)));
+                message.get(Message_.agentScope),
+                message.get(Message_.scheduleDaysOfWeek),
+                message.get(Message_.scheduleTimes),
+                message.get(Message_.scheduleMonthDays),
+                message.get(Message_.availabilityWindows)));
         // Filtros dinâmicos
         List<Predicate> predicates = new ArrayList<>();
         if (filter != null) {
@@ -198,7 +213,11 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 message.get(Message_.repeatIntervalMinutes),
                 message.get(Message_.sendToSubdivisions),
                 message.get(Message_.publishedAt),
-                message.get(Message_.agentScope)));
+                message.get(Message_.agentScope),
+                message.get(Message_.scheduleDaysOfWeek),
+                message.get(Message_.scheduleTimes),
+                message.get(Message_.scheduleMonthDays),
+                message.get(Message_.availabilityWindows)));
         // Filtros dinâmicos
 
         List<Predicate> predicates = new ArrayList<>();
@@ -210,20 +229,24 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 cb.greaterThan(message.get(Message_.expireAt), now));
         predicates.add(notExpired);
 
-        // Candidatos para envio:
-        //   A) Mensagens recorrentes (repeatIntervalMinutes IS NOT NULL e > 0)
-        //      — o filtro de intervalo é aplicado no loop Java abaixo
-        //   B) Mensagens únicas com publishedAt agendado que ainda não foram enviadas
-        //      (lastSentAt IS NULL) e cuja data de publicação já chegou
+        // Candidatos:
+        // A) Intervalo de repetição
+        // B) Envio único (publishedAt vencido, nunca enviado, sem recorrência)
+        // C) Recorrência semanal
+        // D) Recorrência mensal
         Predicate isRecurring = cb.and(
                 cb.isNotNull(message.get(Message_.repeatIntervalMinutes)),
                 cb.greaterThan(message.get(Message_.repeatIntervalMinutes), 0));
         Predicate isFutureOneShotDue = cb.and(
                 cb.isNull(message.get(Message_.repeatIntervalMinutes)),
+                cb.isNull(message.get(Message_.scheduleDaysOfWeek)),
+                cb.isNull(message.get(Message_.scheduleMonthDays)),
                 cb.isNull(message.get(Message_.lastSentAt)),
                 cb.isNotNull(message.get(Message_.publishedAt)),
                 cb.lessThanOrEqualTo(message.get(Message_.publishedAt), now));
-        predicates.add(cb.or(isRecurring, isFutureOneShotDue));
+        Predicate isWeeklyScheduled = cb.isNotNull(message.get(Message_.scheduleDaysOfWeek));
+        Predicate isMonthlyScheduled = cb.isNotNull(message.get(Message_.scheduleMonthDays));
+        predicates.add(cb.or(isRecurring, isFutureOneShotDue, isWeeklyScheduled, isMonthlyScheduled));
 
         if (!predicates.isEmpty()) {
             cq.where(cb.and(predicates.toArray(new Predicate[0])));
@@ -232,20 +255,61 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         TypedQuery<MessageResponseDto> query = entityManager.createQuery(cq);
         List<MessageResponseDto> result = query.getResultList();
         List<MessageResponseDto> filteredResult = new ArrayList<>();
+        LocalDate today = LocalDate.now();
+        LocalTime nowTime = LocalTime.now();
         for (MessageResponseDto dto : result) {
             if (dto.getPublishedAt() != null && dto.getPublishedAt().isAfter(now)) {
                 continue;
             }
+
+            // --- Disponibilidade: verifica janelas de horário antes de qualquer disparo
+            // ---
+            if (!isWithinAvailabilityWindows(dto.getAvailabilityWindows())) {
+                continue;
+            }
+
+            // --- Recorrência semanal ---
+            if (dto.getScheduleDaysOfWeek() != null && !dto.getScheduleDaysOfWeek().isBlank()) {
+                int todayIso = today.getDayOfWeek().getValue();
+                boolean isTodayScheduled = Arrays.stream(dto.getScheduleDaysOfWeek().split(","))
+                        .map(String::trim)
+                        .anyMatch(d -> d.equals(String.valueOf(todayIso)));
+                if (!isTodayScheduled)
+                    continue;
+                String scheduleTimesForToday = resolveScheduleTimesForDay(dto.getScheduleTimes(),
+                        String.valueOf(todayIso));
+                if (!isTimeSlotReached(scheduleTimesForToday, dto.getLastSentAt(), today, nowTime))
+                    continue;
+                feedDeparmentsToMessageResponseDto(dto);
+                filteredResult.add(dto);
+                continue;
+            }
+
+            // --- Recorrência mensal ---
+            if (dto.getScheduleMonthDays() != null && !dto.getScheduleMonthDays().isBlank()) {
+                int todayDom = today.getDayOfMonth();
+                boolean isTodayScheduled = Arrays.stream(dto.getScheduleMonthDays().split(","))
+                        .map(String::trim)
+                        .anyMatch(d -> d.equals(String.valueOf(todayDom)));
+                if (!isTodayScheduled)
+                    continue;
+                String scheduleTimesForToday = resolveScheduleTimesForDay(dto.getScheduleTimes(),
+                        String.valueOf(todayDom));
+                if (!isTimeSlotReached(scheduleTimesForToday, dto.getLastSentAt(), today, nowTime))
+                    continue;
+                feedDeparmentsToMessageResponseDto(dto);
+                filteredResult.add(dto);
+                continue;
+            }
+
+            // --- Intervalo de repetição ou envio único ---
             if (dto.getLastSentAt() != null && dto.getRepeatIntervalMinutes() != null) {
-                // Calcula o próximo horário de envio
                 LocalDateTime nextSendTime = dto.getLastSentAt().plusMinutes(dto.getRepeatIntervalMinutes());
-                // Se o próximo envio é no passado ou agora, a mensagem está pronta para reenvio
                 if (nextSendTime.isBefore(now) || nextSendTime.isEqual(now)) {
                     feedDeparmentsToMessageResponseDto(dto);
                     filteredResult.add(dto);
                 }
             } else if (dto.getLastSentAt() == null) {
-                // Se nunca foi enviado, considerar para reenvio imediato
                 feedDeparmentsToMessageResponseDto(dto);
                 filteredResult.add(dto);
             }
@@ -289,6 +353,10 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 message.getExpireAt(),
                 message.getPublishedAt(),
                 message.getRepeatIntervalMinutes());
+        dto.setScheduleDaysOfWeek(message.getScheduleDaysOfWeek());
+        dto.setScheduleTimes(message.getScheduleTimes());
+        dto.setScheduleMonthDays(message.getScheduleMonthDays());
+        dto.setAvailabilityWindows(message.getAvailabilityWindows());
         return dto;
 
     }
@@ -302,12 +370,16 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 : List.of(AgentScope.INTERNAL, AgentScope.BOTH);
 
         // Critério de visibilidade para web agents:
-        // - Mensagens repetidas: sempre visíveis enquanto ativas (o cliente faz dedup por id+lastSentAt)
+        // - Mensagens repetidas: sempre visíveis enquanto ativas (o cliente faz dedup
+        // por id+lastSentAt)
         // - Mensagens únicas com publishedAt: visíveis se publicadas após 'since'
         // - Mensagens imediatas (sem publishedAt): visíveis se criadas após 'since'
-        // - Nunca despachadas (lastSentAt IS NULL): garantia de entrega no primeiro poll
-        // Nota: lastSentAt é timestamp do broker (RabbitMQ) e não deve ser usado como filtro
-        // de visibilidade para web agents — os dois canais têm semânticas independentes.
+        // - Nunca despachadas (lastSentAt IS NULL): garantia de entrega no primeiro
+        // poll
+        // Nota: lastSentAt é timestamp do broker (RabbitMQ) e não deve ser usado como
+        // filtro
+        // de visibilidade para web agents — os dois canais têm semânticas
+        // independentes.
         String jpql = """
                 SELECT DISTINCT m FROM Message m
                 LEFT JOIN FETCH m.level l
@@ -321,6 +393,8 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                      OR LOWER(d.name) = :departmentName OR m.departments IS EMPTY)
                 AND (
                     m.repeatIntervalMinutes IS NOT NULL
+                    OR (m.scheduleDaysOfWeek IS NOT NULL)
+                    OR (m.scheduleMonthDays IS NOT NULL)
                     OR (m.publishedAt IS NOT NULL AND m.publishedAt >= :since)
                     OR (m.publishedAt IS NULL AND m.createdAt >= :since)
                     OR m.lastSentAt IS NULL
@@ -332,7 +406,8 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 .setParameter("since", since)
                 .setParameter("now", now)
                 .setParameter("scopes", validScopes)
-                .setParameter("departmentName", departmentName != null ? departmentName.toLowerCase().replace(" ", "_") : "")
+                .setParameter("departmentName",
+                        departmentName != null ? departmentName.toLowerCase().replace(" ", "_") : "")
                 .getResultList();
 
         return messages.stream().map(m -> {
@@ -354,5 +429,143 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
             }
             return dto;
         }).toList();
+    }
+
+    /**
+     * Verifica se algum horário agendado em scheduleTimes já passou hoje e ainda
+     * não foi enviado neste slot.
+     * Se scheduleTimes for nulo/vazio → comportamento padrão: dispara uma vez por
+     * dia.
+     * Com múltiplos horários (ex: "09:00,14:00"): dispara a cada slot que passou,
+     * verificando se lastSentAt é anterior ao horário do slot mais recente que
+     * passou.
+     */
+    private boolean isTimeSlotReached(String scheduleTimes, LocalDateTime lastSentAt, LocalDate today,
+            LocalTime nowTime) {
+        if (scheduleTimes == null || scheduleTimes.isBlank()) {
+            // Sem horário fixo: dispara uma vez por dia
+            return lastSentAt == null || !lastSentAt.toLocalDate().equals(today);
+        }
+        LocalTime latestPassedSlot = null;
+        for (String ts : scheduleTimes.split(",")) {
+            try {
+                LocalTime slot = LocalTime.parse(ts.trim());
+                if (!nowTime.isBefore(slot)) { // nowTime >= slot
+                    if (latestPassedSlot == null || slot.isAfter(latestPassedSlot)) {
+                        latestPassedSlot = slot;
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        if (latestPassedSlot == null)
+            return false; // nenhum horário passou ainda
+        if (lastSentAt == null)
+            return true;
+        // Dispara se ainda não enviou desde o slot mais recente que passou hoje
+        LocalDateTime threshold = LocalDateTime.of(today, latestPassedSlot);
+        return lastSentAt.isBefore(threshold);
+    }
+
+    /**
+     * Resolve os horários do dia atual a partir de dois formatos suportados:
+     * - legado: CSV simples (ex.: "09:00,14:00") aplicado a todos os dias
+     * - novo: JSON por dia (ex.: [{"day":"1","times":["09:00","14:00"]}])
+     */
+    private String resolveScheduleTimesForDay(String scheduleTimes, String dayKey) {
+        if (scheduleTimes == null || scheduleTimes.isBlank()) {
+            return null;
+        }
+
+        String trimmed = scheduleTimes.trim();
+        if (!trimmed.startsWith("[")) {
+            return scheduleTimes;
+        }
+
+        try {
+            ObjectMapper om = new ObjectMapper();
+            List<Map<String, Object>> groupedTimes = om.readValue(trimmed,
+                    new TypeReference<List<Map<String, Object>>>() {
+                    });
+
+            for (Map<String, Object> groupedTime : groupedTimes) {
+                if (groupedTime == null || groupedTime.get("day") == null) {
+                    continue;
+                }
+
+                String storedDay = groupedTime.get("day").toString().trim();
+                if (!storedDay.equals(dayKey)) {
+                    continue;
+                }
+
+                Object timesValue = groupedTime.get("times");
+                if (!(timesValue instanceof List<?> timesList) || timesList.isEmpty()) {
+                    return null;
+                }
+
+                List<String> normalizedTimes = new ArrayList<>();
+                for (Object time : timesList) {
+                    if (time == null) {
+                        continue;
+                    }
+                    String normalized = time.toString().trim();
+                    if (!normalized.isBlank()) {
+                        normalizedTimes.add(normalized);
+                    }
+                }
+
+                return normalizedTimes.isEmpty() ? null : String.join(",", normalizedTimes);
+            }
+
+            return null;
+        } catch (IOException | RuntimeException e) {
+            return scheduleTimes;
+        }
+    }
+
+    /**
+     * Verifica se o momento atual está dentro de alguma janela de disponibilidade.
+     * Retorna true se nenhuma janela estiver definida (sem restrição) ou se o
+     * horário
+     * atual cair em uma das janelas configuradas.
+     * Formato JSON: [{"day":1,"startTime":"08:00","endTime":"12:00"}, ...]
+     * day: 1=Seg, 7=Dom (ISO day of week)
+     */
+    private boolean isWithinAvailabilityWindows(String availabilityWindowsJson) {
+        String effectiveWindowsJson = (availabilityWindowsJson != null && !availabilityWindowsJson.isBlank())
+                ? availabilityWindowsJson
+                : defaultOfficeHoursWindowsJson;
+
+        if (effectiveWindowsJson == null || effectiveWindowsJson.isBlank()) {
+            return true; // sem restrição (fallback desabilitado)
+        }
+
+        try {
+            ObjectMapper om = new ObjectMapper();
+            List<Map<String, Object>> windows = om.readValue(effectiveWindowsJson,
+                    new TypeReference<List<Map<String, Object>>>() {
+                    });
+            int todayIso = LocalDate.now().getDayOfWeek().getValue();
+            LocalTime nowTime = LocalTime.now();
+            for (Map<String, Object> window : windows) {
+                Object dayVal = window.get("day");
+                if (dayVal == null)
+                    continue;
+                int day = Integer.parseInt(dayVal.toString());
+                if (day != todayIso)
+                    continue;
+                if (window.get("startTime") == null || window.get("endTime") == null) {
+                    continue;
+                }
+                LocalTime start = LocalTime.parse(window.get("startTime").toString());
+                LocalTime end = LocalTime.parse(window.get("endTime").toString());
+                if (!nowTime.isBefore(start) && nowTime.isBefore(end)) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (IOException | RuntimeException e) {
+            return true; // falha aberta: se JSON inválido, não bloqueia
+        }
     }
 }

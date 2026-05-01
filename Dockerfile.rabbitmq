@@ -5,11 +5,14 @@ COPY docker/rabbitmq-init.sh /docker-entrypoint-init.d/rabbitmq-init.sh
 COPY docker/docker-entrypoint-wrapper.sh /usr/local/bin/docker-entrypoint-wrapper.sh
 COPY docker/rabbitmq-healthcheck.sh /usr/local/bin/rabbitmq-healthcheck.sh
 
-# Garantir permissões de execução
-RUN chmod +x /docker-entrypoint-init.d/rabbitmq-init.sh && \
+# Normalizar EOL para LF (evita erro com scripts versionados em CRLF no Windows)
+# e garantir permissões de execução
+RUN sed -i 's/\r$//' /docker-entrypoint-init.d/rabbitmq-init.sh /usr/local/bin/docker-entrypoint-wrapper.sh /usr/local/bin/rabbitmq-healthcheck.sh && \
+    chmod +x /docker-entrypoint-init.d/rabbitmq-init.sh && \
     chmod +x /usr/local/bin/docker-entrypoint-wrapper.sh && \
     chmod +x /usr/local/bin/rabbitmq-healthcheck.sh
 
-# Usar wrapper como entrypoint para executar scripts de init antes do RabbitMQ
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint-wrapper.sh"]
+# Usar wrapper como entrypoint para executar scripts de init antes do RabbitMQ.
+# Chamar via /bin/sh evita falhas de execução direta em ambientes com EOL/FS diferentes.
+ENTRYPOINT ["/bin/sh", "/usr/local/bin/docker-entrypoint-wrapper.sh"]
 CMD ["rabbitmq-server"]

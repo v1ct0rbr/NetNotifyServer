@@ -67,6 +67,18 @@ public class Message {
     @Column(name = "repeat_interval_minutes")
     private Integer repeatIntervalMinutes;
 
+    @Column(name = "schedule_days_of_week", length = 20)
+    private String scheduleDaysOfWeek;
+
+    @Column(name = "schedule_times", length = 200)
+    private String scheduleTimes;
+
+    @Column(name = "schedule_month_days", length = 100)
+    private String scheduleMonthDays;
+
+    @Column(name = "availability_windows", columnDefinition = "TEXT")
+    private String availabilityWindows;
+
     @Column(name = "expire_at")
     private LocalDateTime expireAt;
 
@@ -102,8 +114,11 @@ public class Message {
                 this.repeatIntervalMinutes,
                 this.sendToSubdivisions,
                 this.publishedAt,
-                this.agentScope);
-
+                this.agentScope,
+                this.scheduleDaysOfWeek,
+                this.scheduleTimes,
+                this.scheduleMonthDays,
+                this.availabilityWindows);
     }
 
 }
