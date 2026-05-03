@@ -10,7 +10,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import br.gov.pb.der.netnotify.model.Department;
 import br.gov.pb.der.netnotify.model.Message;
-import br.gov.pb.der.netnotify.model.AgentScope;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
@@ -38,9 +37,6 @@ public class MessageDto implements java.io.Serializable {
 
     @JsonProperty("sendToSubdivisions")
     private Boolean sendToSubdivisions;
-
-    @JsonProperty("agentScope")
-    private AgentScope agentScope;
 
     @JsonProperty("expireAt")
     @DateTimeFormat(pattern = "dd-MM-yyyy HH:mm")
@@ -92,7 +88,6 @@ public class MessageDto implements java.io.Serializable {
         dto.setLevel(message.getLevel() != null ? message.getLevel().getId() : null);
         dto.setType(message.getType() != null ? message.getType().getId() : null);
         dto.setSendToSubdivisions(message.getSendToSubdivisions());
-        dto.setAgentScope(message.getAgentScope());
         dto.setExpireAt(message.getExpireAt());
         dto.setPublishedAt(message.getPublishedAt());
         dto.setRepeatIntervalMinutes(message.getRepeatIntervalMinutes());

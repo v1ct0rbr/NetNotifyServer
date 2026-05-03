@@ -4,7 +4,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-import br.gov.pb.der.netnotify.model.AgentScope;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -22,7 +21,6 @@ public class AgentMessageDto {
     private LocalDateTime publishedAt;
     private LocalDateTime expireAt;
     private LocalDateTime lastSentAt;
-    private AgentScope agentScope;
     private List<DepartmentInfo> departments;
 
     @Data

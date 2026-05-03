@@ -75,7 +75,6 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 message.get(Message_.repeatIntervalMinutes),
                 message.get(Message_.sendToSubdivisions),
                 message.get(Message_.publishedAt),
-                message.get(Message_.agentScope),
                 message.get(Message_.scheduleDaysOfWeek),
                 message.get(Message_.scheduleTimes),
                 message.get(Message_.scheduleMonthDays),
@@ -213,7 +212,6 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 message.get(Message_.repeatIntervalMinutes),
                 message.get(Message_.sendToSubdivisions),
                 message.get(Message_.publishedAt),
-                message.get(Message_.agentScope),
                 message.get(Message_.scheduleDaysOfWeek),
                 message.get(Message_.scheduleTimes),
                 message.get(Message_.scheduleMonthDays),
@@ -421,7 +419,6 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
             dto.setPublishedAt(m.getPublishedAt());
             dto.setExpireAt(m.getExpireAt());
             dto.setLastSentAt(m.getLastSentAt());
-            dto.setAgentScope(m.getAgentScope());
             if (m.getDepartments() != null) {
                 dto.setDepartments(m.getDepartments().stream()
                         .map(dep -> new AgentMessageDto.DepartmentInfo(dep.getId(), dep.getName()))

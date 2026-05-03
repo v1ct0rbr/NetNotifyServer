@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.UUID;
 
 import br.gov.pb.der.netnotify.model.Message;
-import br.gov.pb.der.netnotify.model.AgentScope;
 import lombok.Data;
 
 @Data
@@ -37,8 +36,6 @@ public class MessageResponseDto implements Serializable {
     private LocalDateTime expireAt;
     private LocalDateTime lastSentAt;
     private List<DepartmentInfo> departments;
-    private AgentScope agentScope;
-
     public MessageResponseDto() {
         this.departments = new ArrayList<>();
     }
@@ -64,7 +61,7 @@ public class MessageResponseDto implements Serializable {
 
     public MessageResponseDto(UUID id, String title, String content, String level, String messageType, String user,
             LocalDateTime createdAt, LocalDateTime updatedAt, LocalDateTime expireAt, LocalDateTime lastSentAt,
-            Integer repeatIntervalMinutes, Boolean sendToSubdivisions, LocalDateTime publishedAt, AgentScope agentScope,
+            Integer repeatIntervalMinutes, Boolean sendToSubdivisions, LocalDateTime publishedAt,
             String scheduleDaysOfWeek, String scheduleTimes, String scheduleMonthDays, String availabilityWindows) {
         this.id = id;
         this.title = title;
@@ -79,7 +76,6 @@ public class MessageResponseDto implements Serializable {
         this.repeatIntervalMinutes = repeatIntervalMinutes;
         this.lastSentAt = lastSentAt;
         this.publishedAt = publishedAt;
-        this.agentScope = agentScope;
         this.scheduleDaysOfWeek = scheduleDaysOfWeek;
         this.scheduleTimes = scheduleTimes;
         this.scheduleMonthDays = scheduleMonthDays;
@@ -113,7 +109,6 @@ public class MessageResponseDto implements Serializable {
                 + ", \"user\":" + "\"" + user + "\""
                 + ", \"createdAt\":" + "\"" + createdAt + "\""
                 + ", \"updatedAt\":" + "\"" + updatedAt + "\""
-                + ", \"agentScope\":" + "\"" + agentScope + "\""
                 + (departments != null ? ", \"departments\":" + departmentsToString() : "")
                 + "}";
     }

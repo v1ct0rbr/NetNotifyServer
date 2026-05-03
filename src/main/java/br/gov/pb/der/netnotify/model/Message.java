@@ -114,7 +114,6 @@ public class Message {
                 this.repeatIntervalMinutes,
                 this.sendToSubdivisions,
                 this.publishedAt,
-                this.agentScope,
                 this.scheduleDaysOfWeek,
                 this.scheduleTimes,
                 this.scheduleMonthDays,
