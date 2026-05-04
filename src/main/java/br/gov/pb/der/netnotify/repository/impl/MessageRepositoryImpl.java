@@ -1,8 +1,8 @@
 package br.gov.pb.der.netnotify.repository.impl;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -14,7 +14,6 @@ import java.util.UUID;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
@@ -30,6 +29,7 @@ import br.gov.pb.der.netnotify.model.Message_;
 import br.gov.pb.der.netnotify.model.User_;
 import br.gov.pb.der.netnotify.repository.custom.MessageRepositoryCustom;
 import br.gov.pb.der.netnotify.response.MessageResponseDto;
+import br.gov.pb.der.netnotify.utils.AvailabilityWindowUtils;
 import br.gov.pb.der.netnotify.utils.Functions;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -40,12 +40,11 @@ import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import lombok.RequiredArgsConstructor;
 
 @Repository
+@RequiredArgsConstructor
 public class MessageRepositoryImpl implements MessageRepositoryCustom {
-
-    @Value("${app.default-office-hours-windows:[{\"day\":\"1\",\"startTime\":\"08:00\",\"endTime\":\"17:00\"},{\"day\":\"2\",\"startTime\":\"08:00\",\"endTime\":\"17:00\"},{\"day\":\"3\",\"startTime\":\"08:00\",\"endTime\":\"17:00\"},{\"day\":\"4\",\"startTime\":\"08:00\",\"endTime\":\"17:00\"},{\"day\":\"5\",\"startTime\":\"08:00\",\"endTime\":\"17:00\"}]}")
-    private String defaultOfficeHoursWindowsJson;
 
     @PersistenceContext
     EntityManager entityManager;
@@ -194,7 +193,7 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
     }
 
     @Override
-    public List<MessageResponseDto> findMessagesForResend() {
+    public List<MessageResponseDto> findMessagesForResend(LocalDateTime now, String defaultOfficeHoursWindow) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<MessageResponseDto> cq = cb.createQuery(MessageResponseDto.class);
         Root<Message> message = cq.from(Message.class);
@@ -219,7 +218,6 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         // Filtros dinâmicos
 
         List<Predicate> predicates = new ArrayList<>();
-        LocalDateTime now = LocalDateTime.now();
 
         // Apenas mensagens não expiradas
         Predicate notExpired = cb.or(
@@ -253,8 +251,8 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         TypedQuery<MessageResponseDto> query = entityManager.createQuery(cq);
         List<MessageResponseDto> result = query.getResultList();
         List<MessageResponseDto> filteredResult = new ArrayList<>();
-        LocalDate today = LocalDate.now();
-        LocalTime nowTime = LocalTime.now();
+        LocalDate today = now.toLocalDate();
+        LocalTime nowTime = now.toLocalTime();
         for (MessageResponseDto dto : result) {
             if (dto.getPublishedAt() != null && dto.getPublishedAt().isAfter(now)) {
                 continue;
@@ -262,7 +260,7 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
 
             // --- Disponibilidade: verifica janelas de horário antes de qualquer disparo
             // ---
-            if (!isWithinAvailabilityWindows(dto.getAvailabilityWindows())) {
+            if (!isWithinAvailabilityWindows(dto.getAvailabilityWindows(), defaultOfficeHoursWindow, today, nowTime)) {
                 continue;
             }
 
@@ -528,34 +526,28 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
      * Formato JSON: [{"day":1,"startTime":"08:00","endTime":"12:00"}, ...]
      * day: 1=Seg, 7=Dom (ISO day of week)
      */
-    private boolean isWithinAvailabilityWindows(String availabilityWindowsJson) {
+    private boolean isWithinAvailabilityWindows(String availabilityWindowsJson, String defaultOfficeHoursWindow,
+            LocalDate today, LocalTime nowTime) {
         String effectiveWindowsJson = (availabilityWindowsJson != null && !availabilityWindowsJson.isBlank())
                 ? availabilityWindowsJson
-                : defaultOfficeHoursWindowsJson;
+                : defaultOfficeHoursWindow;
 
         if (effectiveWindowsJson == null || effectiveWindowsJson.isBlank()) {
             return true; // sem restrição (fallback desabilitado)
         }
 
         try {
-            ObjectMapper om = new ObjectMapper();
-            List<Map<String, Object>> windows = om.readValue(effectiveWindowsJson,
-                    new TypeReference<List<Map<String, Object>>>() {
-                    });
-            int todayIso = LocalDate.now().getDayOfWeek().getValue();
-            LocalTime nowTime = LocalTime.now();
-            for (Map<String, Object> window : windows) {
-                Object dayVal = window.get("day");
-                if (dayVal == null)
-                    continue;
-                int day = Integer.parseInt(dayVal.toString());
-                if (day != todayIso)
-                    continue;
-                if (window.get("startTime") == null || window.get("endTime") == null) {
+            int todayIso = today.getDayOfWeek().getValue();
+            List<AvailabilityWindowUtils.AvailabilityWindow> windows = AvailabilityWindowUtils.parse(effectiveWindowsJson);
+            if (windows.isEmpty()) {
+                return true;
+            }
+            for (AvailabilityWindowUtils.AvailabilityWindow window : windows) {
+                if (window.day() != todayIso) {
                     continue;
                 }
-                LocalTime start = LocalTime.parse(window.get("startTime").toString());
-                LocalTime end = LocalTime.parse(window.get("endTime").toString());
+                LocalTime start = window.startTime();
+                LocalTime end = window.endTime();
                 if (!nowTime.isBefore(start) && nowTime.isBefore(end)) {
                     return true;
                 }

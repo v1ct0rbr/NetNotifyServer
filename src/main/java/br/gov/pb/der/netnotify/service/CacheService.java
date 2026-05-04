@@ -1,17 +1,21 @@
 package br.gov.pb.der.netnotify.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 public class CacheService {
 
     private Cache meuCache;
 
-    @Autowired
-    private CacheManager cacheManager;
+    private final CacheManager cacheManager;
 
     public void initialize(String value) {
         this.meuCache = cacheManager.getCache(value);
@@ -33,6 +37,20 @@ public class CacheService {
                         cache.clear();
                     }
                 });
+    }
+
+    public List<String> clearAllCaches() {
+        List<String> clearedCacheNames = new ArrayList<>();
+
+        cacheManager.getCacheNames().forEach(cacheName -> {
+            Cache cache = cacheManager.getCache(cacheName);
+            if (cache != null) {
+                cache.clear();
+                clearedCacheNames.add(cacheName);
+            }
+        });
+
+        return clearedCacheNames;
     }
 
     public void clearAllByValue(String value) {

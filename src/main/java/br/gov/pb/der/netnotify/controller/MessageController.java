@@ -1,18 +1,7 @@
 package br.gov.pb.der.netnotify.controller;
 
-import java.io.IOException;
-import java.time.LocalTime;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -35,6 +24,7 @@ import br.gov.pb.der.netnotify.model.Message;
 import br.gov.pb.der.netnotify.response.MessageResponseDto;
 import br.gov.pb.der.netnotify.service.DepartmentService;
 import br.gov.pb.der.netnotify.service.LevelService;
+import br.gov.pb.der.netnotify.service.AvailabilityWindowValidator;
 import br.gov.pb.der.netnotify.service.MessageService;
 import br.gov.pb.der.netnotify.service.MessageTypeService;
 import br.gov.pb.der.netnotify.service.RabbitmqService;
@@ -62,6 +52,8 @@ public class MessageController {
     private final DepartmentService departmentService;
 
     private final RabbitmqService rabbitmqService;
+
+    private final AvailabilityWindowValidator availabilityWindowValidator;
 
     @GetMapping("/get-default-office-hours-window")
     public ResponseEntity<SimpleResponseUtils<String>> getDefaultOfficeHoursWindow() {
@@ -201,98 +193,9 @@ public class MessageController {
         }
 
         if (messageDto.getAvailabilityWindows() != null && !messageDto.getAvailabilityWindows().isBlank()) {
-            validateAvailabilityWindows(messageDto.getAvailabilityWindows(), bindingResult);
+            availabilityWindowValidator.validate("availabilityWindows", messageDto.getAvailabilityWindows(), bindingResult);
         }
 
         return !bindingResult.hasErrors();
     }
-
-    private void validateAvailabilityWindows(String availabilityWindowsJson, BindingResult bindingResult) {
-        List<Map<String, Object>> windows;
-        try {
-            ObjectMapper om = new ObjectMapper();
-            windows = om.readValue(availabilityWindowsJson, new TypeReference<List<Map<String, Object>>>() {
-            });
-        } catch (IOException | RuntimeException ex) {
-            bindingResult.rejectValue("availabilityWindows", "Invalid",
-                    "Formato de janelas de disponibilidade inválido.");
-            return;
-        }
-
-        Map<Integer, List<int[]>> intervalsByDay = new HashMap<>();
-
-        for (int i = 0; i < windows.size(); i++) {
-            Map<String, Object> window = windows.get(i);
-            if (window == null) {
-                bindingResult.rejectValue("availabilityWindows", "Invalid",
-                        "Janela de disponibilidade inválida.");
-                continue;
-            }
-
-            Integer day = parseDay(window.get("day"));
-            if (day == null || day < 1 || day > 7) {
-                bindingResult.rejectValue("availabilityWindows", "Invalid",
-                        "Dia da janela de disponibilidade deve estar entre 1 e 7.");
-                continue;
-            }
-
-            String startTimeRaw = window.get("startTime") != null ? window.get("startTime").toString() : null;
-            String endTimeRaw = window.get("endTime") != null ? window.get("endTime").toString() : null;
-
-            LocalTime start = parseTime(startTimeRaw);
-            LocalTime end = parseTime(endTimeRaw);
-
-            if (start == null || end == null) {
-                bindingResult.rejectValue("availabilityWindows", "Invalid",
-                        "Horários da janela de disponibilidade devem estar no formato HH:mm.");
-                continue;
-            }
-
-            if (!start.isBefore(end)) {
-                bindingResult.rejectValue("availabilityWindows", "Invalid",
-                        "Horário inicial deve ser menor que o horário final nas janelas de disponibilidade.");
-                continue;
-            }
-
-            intervalsByDay.computeIfAbsent(day, ignored -> new ArrayList<>())
-                    .add(new int[] { start.toSecondOfDay(), end.toSecondOfDay() });
-        }
-
-        for (Map.Entry<Integer, List<int[]>> entry : intervalsByDay.entrySet()) {
-            List<int[]> intervals = entry.getValue();
-            intervals.sort(Comparator.comparingInt(interval -> interval[0]));
-            for (int i = 1; i < intervals.size(); i++) {
-                int[] previous = intervals.get(i - 1);
-                int[] current = intervals.get(i);
-                if (current[0] < previous[1]) {
-                    bindingResult.rejectValue("availabilityWindows", "Invalid",
-                            "Existem janelas de disponibilidade sobrepostas no mesmo dia.");
-                    return;
-                }
-            }
-        }
-    }
-
-    private Integer parseDay(Object value) {
-        if (value == null) {
-            return null;
-        }
-        try {
-            return Integer.parseInt(value.toString().trim());
-        } catch (NumberFormatException ex) {
-            return null;
-        }
-    }
-
-    private LocalTime parseTime(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        try {
-            return LocalTime.parse(value.trim());
-        } catch (DateTimeParseException ex) {
-            return null;
-        }
-    }
-
 }

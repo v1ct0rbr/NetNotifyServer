@@ -78,6 +78,7 @@ public class SecurityConfiguration {
                 .requestMatchers("/aux/**").authenticated()
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/profile/**").authenticated()
+                .requestMatchers("/admin/**").hasAnyRole(roleAdmin)
                 .requestMatchers("/rabbit/**").hasAnyRole(roleAdmin)
                 .requestMatchers(HttpMethod.DELETE, "/messages/**").hasAnyRole(roleAdmin)
                 .requestMatchers("/departments/**").hasAnyRole(roleAdmin)

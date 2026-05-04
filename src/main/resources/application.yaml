@@ -75,8 +75,9 @@ app:
   react-app-url: ${REACT_APP_URL:http://localhost:3000} # URL do app React que receberá a autenticação
   allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
   # Expediente padrão aplicado a todas as mensagens quando availabilityWindows não é informado.
-  # Formato: [{"day":"1","startTime":"08:00","endTime":"17:00"}, ...]
-  default-office-hours-windows: '[{"day":"1","startTime":"08:00","endTime":"17:00"},{"day":"2","startTime":"08:00","endTime":"17:00"},{"day":"3","startTime":"08:00","endTime":"17:00"},{"day":"4","startTime":"08:00","endTime":"17:00"},{"day":"5","startTime":"08:00","endTime":"17:00"}]'
+  # Aceita tanto o formato achatado [{"day":"1","startTime":"08:00","endTime":"17:00"}, ...]
+  # quanto o agrupado [{"day":"1","intervals":[{"startTime":"08:00","endTime":"12:00"},{"startTime":"13:00","endTime":"17:00"}]}]
+  default-office-hours-windows: '${APP_DEFAULT_OFFICE_HOURS_WINDOWS:${DEFAULT_OFFICE_HOURS_WINDOW:[{"day":"1","startTime":"08:00","endTime":"17:00"},{"day":"2","startTime":"08:00","endTime":"17:00"},{"day":"3","startTime":"08:00","endTime":"17:00"},{"day":"4","startTime":"08:00","endTime":"17:00"},{"day":"5","startTime":"08:00","endTime":"17:00"}]}}'
   keycloak:
     client-id: ${KEYCLOAK_CLIENT_ID:netnotify-client}
     client-secret: ${KEYCLOAK_CLIENT_SECRET:secret}

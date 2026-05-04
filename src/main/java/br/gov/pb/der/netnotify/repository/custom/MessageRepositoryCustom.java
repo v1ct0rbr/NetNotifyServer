@@ -16,7 +16,7 @@ public interface MessageRepositoryCustom {
 
     Page<MessageResponseDto> findAllMessages(MessageFilter filter, Pageable pageable);
     
-    List<MessageResponseDto> findMessagesForResend();
+    List<MessageResponseDto> findMessagesForResend(LocalDateTime now, String defaultOfficeHoursWindow);
 
     Long countMessages(MessageFilter filter);
 

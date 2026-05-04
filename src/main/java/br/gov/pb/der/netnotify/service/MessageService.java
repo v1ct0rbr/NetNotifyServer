@@ -5,16 +5,13 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import br.gov.pb.der.netnotify.config.CacheConfig;
 import br.gov.pb.der.netnotify.dto.AgentMessageDto;
 import br.gov.pb.der.netnotify.dto.MessageDto;
 import br.gov.pb.der.netnotify.filter.MessageFilter;
@@ -36,8 +33,8 @@ public class MessageService implements AbstractService<Message, UUID> {
     @Lazy
     private final RabbitmqService rabbitmqService;
 
-    @Value("${app.default-office-hours-windows}")
-    private String defaultOfficeHoursWindow;
+    private final OfficeHoursSettingsService officeHoursSettingsService;
+    private final ApplicationTimeService applicationTimeService;
 
     @Override
     @Caching(evict = {
@@ -96,7 +93,9 @@ public class MessageService implements AbstractService<Message, UUID> {
     }
 
     public void sendScheduledMessages() {
-        List<MessageResponseDto> messagesToSend = messageRepository.findMessagesForResend();
+        java.time.LocalDateTime now = applicationTimeService.nowDateTime();
+        String defaultOfficeHoursWindow = officeHoursSettingsService.getDefaultOfficeHoursWindow();
+        List<MessageResponseDto> messagesToSend = messageRepository.findMessagesForResend(now, defaultOfficeHoursWindow);
         for (MessageResponseDto messageDto : messagesToSend) {
             Message message = findById(messageDto.getId());
             sendNotification(message);
@@ -169,7 +168,7 @@ public class MessageService implements AbstractService<Message, UUID> {
                     ", agentes de mensageria são internos) messageId=" + message.getId());
         }
 
-        messageRepository.updateLastSentAtById(message.getId(), java.time.LocalDateTime.now());
+        messageRepository.updateLastSentAtById(message.getId(), applicationTimeService.nowDateTime());
 
         return msg;
     }
@@ -178,9 +177,8 @@ public class MessageService implements AbstractService<Message, UUID> {
         return messageRepository.updateLastSentAtById(id, lastSentAt);
     }
 
-    @Cacheable(value = CacheConfig.DEFAULT_OFFICE_HOURS_WINDOW, key = "'default_office_hours_window'")
     public String getDefaultOfficeHoursWindow() {
-        return defaultOfficeHoursWindow;
+        return officeHoursSettingsService.getDefaultOfficeHoursWindow();
     }
 
 }
