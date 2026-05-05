@@ -135,7 +135,7 @@ public class MessageService implements AbstractService<Message, UUID> {
         if (publishToMessaging) {
             List<Department> departmentList = message.getDepartments();
             if (departmentList.isEmpty()) {
-                // Broadcast geral: somente para quem escuta broadcast.*
+                // Broadcast geral: entregue pela routing key broadcast.general
                 // System.out.println("[Routing] Broadcast geral messageId=" + message.getId());
                 rabbitmqService.basicPublish(msg);
             } else {
@@ -154,13 +154,12 @@ public class MessageService implements AbstractService<Message, UUID> {
                             if (departmentList.contains(subDept)) {
                                 continue; // Já está na lista principal
                             }
-                            String subDeptName = subDept.getName().toLowerCase().replace(" ", "_");
-                            rabbitmqService.publishToDepartment(msg, subDeptName);
+                            rabbitmqService.publishToDepartment(msg, subDept.getName());
                         }
                     }
                 }
                 rabbitmqService.publishToDepartments(msg, departmentList.stream()
-                        .map(dept -> dept.getName().toLowerCase().replace(" ", "_"))
+                        .map(Department::getName)
                         .collect(Collectors.toList()));
             }
         } else {

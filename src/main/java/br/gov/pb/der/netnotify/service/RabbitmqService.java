@@ -3,7 +3,10 @@ package br.gov.pb.der.netnotify.service;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -30,6 +33,11 @@ import org.slf4j.LoggerFactory;
 public class RabbitmqService {
 
     private static final Logger log = LoggerFactory.getLogger(RabbitmqService.class);
+    private static final String BROADCAST_ROUTING_KEY = "broadcast.general";
+    private static final String DEPARTMENT_ROUTING_PREFIX = "department.";
+    private static final String AGENT_ROUTING_PREFIX = "agent.";
+    private static final String AGENT_QUEUE_PREFIX = "queue_agent_";
+    private static final int TEMP_QUEUE_EXPIRES_MS = 60_000;
 
     @Value("${spring.rabbitmq.host}")
     private String factoryHost;
@@ -39,10 +47,6 @@ public class RabbitmqService {
     private String factoryPassword;
     @Value("${spring.rabbitmq.virtual-host}")
     private String factoryVirtualHost;
-    @Value("${spring.rabbitmq.queue:notification_queue}")
-    private String queueName;
-    @Value("${spring.rabbitmq.routing-key:notification_key}")
-    private String routingKey;
     
     // Credenciais separadas: produtor (servidor) e consumidor (agentes)
     @Value("${spring.rabbitmq.admin-producer-username:admin-producer}")
@@ -115,39 +119,14 @@ public class RabbitmqService {
         try (Connection connection = factory.newConnection();
                 Channel channel = connection.createChannel()) {
 
-            // Declara TopicExchange com o mesmo flag de durable
             channel.exchangeDeclare(fanoutExchange.getName(), fanoutExchange.getType(), fanoutExchange.isDurable());
-
-            // Declara fila (durável por padrão)
-            channel.queueDeclare(queueName, true, false, false, null);
-
-            // Faz bind com wildcard para receber todas as mensagens (#)
-            channel.queueBind(queueName, fanoutExchange.getName(), "#");
-
-            System.out.println("Initialized exchange: " + fanoutExchange.getName() +
-                    ", type: " + fanoutExchange.getType() +
-                    ", queue: " + queueName +
-                    ", binding pattern: # (all messages)" +
-                    ", exchangeDurable: " + fanoutExchange.isDurable());
+            log.info("Initialized exchange: name={}, type={}, durable={}",
+                    fanoutExchange.getName(), fanoutExchange.getType(), fanoutExchange.isDurable());
         }
     }
 
     public void basicPublish(String message) {
-        try (Connection connection = rabbitConnectionFactoryProducer().newConnection();
-                Channel channel = connection.createChannel()) {
-
-            // Garante declaração com a mesma durabilidade configurada
-            channel.exchangeDeclare(fanoutExchange.getName(), fanoutExchange.getType(), fanoutExchange.isDurable());
-
-            // Usa routing key "broadcast.#" para broadcast geral
-            channel.basicPublish(fanoutExchange.getName(), "broadcast.general", null,
-                    message.getBytes(StandardCharsets.UTF_8));
-            System.out.println(" [x] Sent broadcast message: '" + message + "'");
-
-        } catch (IOException | TimeoutException e) {
-            System.err.println("Error publishing message: " + e.getMessage());
-            e.printStackTrace();
-        }
+        publishWithRoutingKey(message, BROADCAST_ROUTING_KEY);
     }
 
     public String basicConsume() {
@@ -174,13 +153,10 @@ public class RabbitmqService {
                 throw e;
             }
             
-            try {
-                channel.queueDeclarePassive(queueName);
-            } catch (IOException e) {
-                System.err.println("Warning: Queue '" + queueName + "' does not exist. " +
-                        "Make sure server has initialized it. " + e.getMessage());
-                throw e;
-            }
+            Map<String, Object> arguments = new HashMap<>();
+            arguments.put("x-expires", TEMP_QUEUE_EXPIRES_MS);
+            String queueName = channel.queueDeclare("", false, true, true, arguments).getQueue();
+            channel.queueBind(queueName, fanoutExchange.getName(), BROADCAST_ROUTING_KEY);
 
             System.out.println(" [*] Waiting for messages for " + timeoutMillis + "ms");
 
@@ -240,31 +216,8 @@ public class RabbitmqService {
                 return queues;
             }
 
-            // Declara uma fila anônima temporária para obter informações de binding
-            String tempQueueName = channel.queueDeclare().getQueue();
-
-            // Faz bind da fila temporária ao exchange
-            channel.queueBind(tempQueueName, fanoutExchange.getName(), "");
-
-            // Tenta obter informações das queues via passive declaration
-            // Nota: A RabbitMQ Java Client não fornece um método direto para listar queues
-            // de um exchange
-            // Então usamos a abordagem de tentar conectar a queues conhecidas
-
-            try {
-                // Tenta acessar a fila principal configurada
-                com.rabbitmq.client.AMQP.Queue.DeclareOk declareOk = channel.queueDeclarePassive(queueName);
-                if (declareOk != null) {
-                    queues.add(queueName);
-                    System.out.println(
-                            "Queue found: " + queueName + " (messageCount: " + declareOk.getMessageCount() + ")");
-                }
-            } catch (IOException e) {
-                System.out.println("Queue not found: " + queueName);
-            }
-
-            // Remove a fila temporária
-            channel.queueDelete(tempQueueName);
+            log.info("Exchange '{}' is available. Queue discovery should be done via the Management API.",
+                    fanoutExchange.getName());
 
             return queues;
 
@@ -306,16 +259,14 @@ public class RabbitmqService {
         try (Connection connection = rabbitConnectionFactoryProducer().newConnection();
                 Channel channel = connection.createChannel()) {
 
-            // Usa o tipo de exchange do bean (Fanout ou Topic conforme configurado)
             channel.exchangeDeclare(fanoutExchange.getName(), fanoutExchange.getType(), fanoutExchange.isDurable());
 
             channel.basicPublish(fanoutExchange.getName(), customRoutingKey, null,
                     message.getBytes(StandardCharsets.UTF_8));
-            System.out.println(" [x] Sent to '" + customRoutingKey + "': '" + message + "'");
+            log.info("[RabbitMQ] Sent routingKey='{}'", customRoutingKey);
 
         } catch (IOException | TimeoutException e) {
-            System.err
-                    .println("Error publishing message with routing key '" + customRoutingKey + "': " + e.getMessage());
+            log.error("Error publishing message with routing key '{}': {}", customRoutingKey, e.getMessage());
         }
     }
 
@@ -326,9 +277,7 @@ public class RabbitmqService {
      * @param departmentName Nome do departamento
      */
     public void publishToDepartment(String message, String departmentName) {
-        String routingKeyForDept = String.format("department.%s",
-                departmentName.toLowerCase().replace(" ", "_"));
-        publishWithRoutingKey(message, routingKeyForDept);
+        publishWithRoutingKey(message, buildDepartmentRoutingKey(departmentName));
     }
 
     /**
@@ -339,9 +288,7 @@ public class RabbitmqService {
      */
     public void publishToDepartments(String message, List<String> departmentNames) {
         for (String deptName : departmentNames) {
-            String deptRoutingKey = String.format("department.%s",
-                    deptName.toLowerCase().replace(" ", "_"));
-            publishWithRoutingKey(message, deptRoutingKey);
+            publishToDepartment(message, deptName);
         }
     }
 
@@ -352,7 +299,7 @@ public class RabbitmqService {
      * @param message Conteúdo da mensagem
      */
     public void publishToAllDepartments(String message) {
-        publishWithRoutingKey(message, "department.#");
+        basicPublish(message);
     }
 
     /**
@@ -361,57 +308,30 @@ public class RabbitmqService {
      * @param message Conteúdo da mensagem
      */
     public void publishToEveryone(String message) {
-        // Envia para todos os departamentos
-        publishWithRoutingKey(message, "department.#");
-        // Envia broadcast geral
-        publishWithRoutingKey(message, "broadcast.#");
+        basicPublish(message);
+    }
+
+    public void publishToAgent(String message, String agentHostname) {
+        publishWithRoutingKey(message, buildAgentRoutingKey(agentHostname));
     }
 
     /**
-     * Cria uma fila para receber mensagens de um departamento específico
-     * 
-     * @param departmentName Nome do departamento
-     * @return Nome da fila criada
-     */
-    public String createDepartmentQueue(String departmentName) {
-        String deptNameFormatted = departmentName.toLowerCase().replace(" ", "_");
-        String queueNameForDept = String.format("queue_department_%s", deptNameFormatted);
-        String routingPatternForDept = String.format("department.%s", deptNameFormatted);
-
-        try (Connection connection = rabbitConnectionFactory().newConnection();
-                Channel channel = connection.createChannel()) {
-
-            // Declara exchange como Topic
-            channel.exchangeDeclare(fanoutExchange.getName(), "topic", fanoutExchange.isDurable());
-
-            // Declara fila para o departamento
-            channel.queueDeclare(queueNameForDept, true, false, false, null);
-
-            // Faz bind com routing pattern específico do departamento
-            channel.queueBind(queueNameForDept, fanoutExchange.getName(), routingPatternForDept);
-
-            System.out.println("Created queue: " + queueNameForDept +
-                    ", listening to: " + routingPatternForDept);
-            return queueNameForDept;
-
-        } catch (IOException | TimeoutException e) {
-            System.err.println("Error creating department queue: " + e.getMessage());
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    /**
-     * Publica uma mensagem diretamente em uma fila pelo nome, usando o exchange
-     * padrão (string vazia). O RabbitMQ roteia pelo nome exato da fila.
+     * Compatibilidade para chamadas legadas baseadas em nome de fila.
      *
-     * <p>Útil para envio isolado a um agente específico sem passar pelo exchange
-     * de tópicos. O usuário admin-producer precisa ter permissão de write no vhost.
+     * <p>Quando a fila segue a convenção {@code queue_agent_<hostname>}, a mensagem é
+     * redirecionada para a routing key {@code agent.<hostname>}. Se o nome não
+     * seguir essa convenção, faz fallback para publicação direta na fila.
      *
      * @param targetQueueName nome exato da fila de destino
      * @param message         conteúdo (geralmente JSON)
      */
     public void publishDirectToQueue(String targetQueueName, String message) {
+        String agentHostname = extractAgentHostnameFromQueueName(targetQueueName);
+        if (agentHostname != null) {
+            publishToAgent(message, agentHostname);
+            return;
+        }
+
         try (Connection connection = rabbitConnectionFactoryProducer().newConnection();
                 Channel channel = connection.createChannel()) {
 
@@ -426,6 +346,34 @@ public class RabbitmqService {
         } catch (IOException | TimeoutException e) {
             log.error("[RabbitMQ] Erro ao publicar diretamente na fila '{}': {}", targetQueueName, e.getMessage());
         }
+    }
+
+    private String buildDepartmentRoutingKey(String departmentName) {
+        return DEPARTMENT_ROUTING_PREFIX + normalizeRoutingSegment(departmentName);
+    }
+
+    private String buildAgentRoutingKey(String agentHostname) {
+        return AGENT_ROUTING_PREFIX + normalizeRoutingSegment(agentHostname);
+    }
+
+    private String normalizeRoutingSegment(String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Routing segment cannot be blank");
+        }
+        return value.trim()
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "_")
+                .replaceAll("^_+|_+$", "");
+    }
+
+    private String extractAgentHostnameFromQueueName(String queueName) {
+        if (queueName == null || queueName.isBlank()) {
+            return null;
+        }
+        if (queueName.startsWith(AGENT_QUEUE_PREFIX)) {
+            return queueName.substring(AGENT_QUEUE_PREFIX.length());
+        }
+        return null;
     }
 
     /**

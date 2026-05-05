@@ -1,5 +1,7 @@
 package br.gov.pb.der.netnotify.dto;
 
+import java.util.List;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,13 +15,13 @@ public class RabbitAgentDto {
 
     private String queueName;
 
-    /** "geral" para filas broadcast, "departamento" para filas de departamento */
+    /** "agente" para a fila única do agente; "legado-departamento" para filas antigas */
     private String queueType;
 
     /** Hostname do agente extraído do nome da fila */
     private String agentHostname;
 
-    /** Nome do departamento (apenas quando queueType = "departamento") */
+    /** Nome do departamento, quando inferível a partir de convenções legadas */
     private String department;
 
     /** IP do consumidor (peer) */
@@ -36,4 +38,7 @@ public class RabbitAgentDto {
 
     /** Nome da conexão reportado pelo RabbitMQ */
     private String connectionName;
+
+    /** Routing keys atualmente ligadas à fila do agente */
+    private List<String> routingKeys;
 }

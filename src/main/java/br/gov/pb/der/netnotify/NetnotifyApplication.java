@@ -26,7 +26,7 @@ public class NetnotifyApplication {
 	public void initializeRabbitMQ() {
 		try {
 			rabbitmqService.initializeExchangeAndQueue();
-			System.out.println("RabbitMQ exchange and queue initialized successfully");
+			System.out.println("RabbitMQ exchange initialized successfully");
 		} catch (Exception e) {
 			System.err.println("Failed to initialize RabbitMQ: " + e.getMessage());
 			e.printStackTrace();
