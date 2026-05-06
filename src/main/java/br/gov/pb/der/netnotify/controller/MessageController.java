@@ -1,6 +1,5 @@
 package br.gov.pb.der.netnotify.controller;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -132,10 +131,7 @@ public class MessageController {
                     .toList());
 
             messageService.save(message);
-            boolean hasSchedule = (message.getScheduleDaysOfWeek() != null || message.getScheduleMonthDays() != null);
-            boolean isDelayed = message.getPublishedAt() != null
-                    && message.getPublishedAt().isAfter(LocalDateTime.now());
-            if (!hasSchedule && !isDelayed) {
+            if (messageService.shouldSendImmediately(message)) {
                 messageService.sendNotification(message);
             }
             return ResponseEntity.ok(SimpleResponseUtils.success(message.getId(), "Mensagem salva com sucesso."));
@@ -187,7 +183,7 @@ public class MessageController {
     }
 
     public boolean isMessageValid(MessageDto messageDto, BindingResult bindingResult) {
-        LocalDateTime now = LocalDateTime.now();
+        var now = java.time.LocalDateTime.now();
 
         if (messageDto.getExpireAt() != null && messageDto.getExpireAt().isBefore(now)) {
             bindingResult.rejectValue("expireAt", "Invalid", "A data de expiração deve ser no futuro.");

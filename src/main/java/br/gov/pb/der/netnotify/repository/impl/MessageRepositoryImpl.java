@@ -364,9 +364,8 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
     }
 
     @Override
-    public List<AgentMessageDto> findMessagesForAgent(String agentType, String departmentName, LocalDateTime since) {
-        LocalDateTime now = LocalDateTime.now();
-
+    public List<AgentMessageDto> findMessagesForAgent(String agentType, String departmentName, LocalDateTime since,
+            LocalDateTime now, String defaultOfficeHoursWindow) {
         List<AgentScope> validScopes = agentType != null && agentType.equalsIgnoreCase("external")
                 ? List.of(AgentScope.EXTERNAL, AgentScope.BOTH)
                 : List.of(AgentScope.INTERNAL, AgentScope.BOTH);
@@ -413,7 +412,13 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                         departmentName != null ? departmentName.toLowerCase().replace(" ", "_") : "")
                 .getResultList();
 
-        return messages.stream().map(m -> {
+        LocalDate today = now.toLocalDate();
+        LocalTime nowTime = now.toLocalTime();
+
+        return messages.stream()
+                .filter(m -> isWithinAvailabilityWindows(m.getAvailabilityWindows(), defaultOfficeHoursWindow, today,
+                        nowTime))
+                .map(m -> {
             AgentMessageDto dto = new AgentMessageDto();
             dto.setId(m.getId());
             dto.setTitle(m.getTitle());

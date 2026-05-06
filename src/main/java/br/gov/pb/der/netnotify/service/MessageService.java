@@ -1,5 +1,7 @@
 package br.gov.pb.der.netnotify.service;
 
+import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -20,6 +22,7 @@ import br.gov.pb.der.netnotify.model.Department;
 import br.gov.pb.der.netnotify.model.Message;
 import br.gov.pb.der.netnotify.repository.MessageRepository;
 import br.gov.pb.der.netnotify.response.MessageResponseDto;
+import br.gov.pb.der.netnotify.utils.AvailabilityWindowUtils;
 import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 
@@ -131,7 +134,40 @@ public class MessageService implements AbstractService<Message, UUID> {
      */
     public List<AgentMessageDto> findMessagesForAgent(String agentType, String departmentName,
             java.time.LocalDateTime since) {
-        return messageRepository.findMessagesForAgent(agentType, departmentName, since);
+        LocalDateTime now = applicationTimeService.nowDateTime();
+        String defaultOfficeHoursWindow = officeHoursSettingsService.getDefaultOfficeHoursWindow();
+        return messageRepository.findMessagesForAgent(agentType, departmentName, since, now, defaultOfficeHoursWindow);
+    }
+
+    public boolean shouldSendImmediately(Message message) {
+        if (message == null) {
+            return false;
+        }
+
+        LocalDateTime now = applicationTimeService.nowDateTime();
+        if (message.getPublishedAt() != null && message.getPublishedAt().isAfter(now)) {
+            return false;
+        }
+
+        if (message.getScheduleDaysOfWeek() != null || message.getScheduleMonthDays() != null) {
+            return false;
+        }
+
+        return isWithinAvailabilityWindow(message.getAvailabilityWindows(), now);
+    }
+
+    boolean isWithinAvailabilityWindow(String availabilityWindowsJson, LocalDateTime when) {
+        String defaultOfficeHoursWindow = officeHoursSettingsService.getDefaultOfficeHoursWindow();
+        try {
+            return AvailabilityWindowUtils.isAllowedAt(
+                    availabilityWindowsJson,
+                    defaultOfficeHoursWindow,
+                    when.toLocalDate(),
+                    when.toLocalTime());
+        } catch (IOException | RuntimeException ex) {
+            log.warn("Ignoring invalid availability windows while evaluating immediate dispatch.", ex);
+            return true;
+        }
     }
 
     @CacheEvict(value = "agentMessages", allEntries = true)

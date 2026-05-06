@@ -22,5 +22,6 @@ public interface MessageRepositoryCustom {
 
     public MessageDto findMessageDtoById(UUID id);
 
-    List<AgentMessageDto> findMessagesForAgent(String agentType, String departmentName, LocalDateTime since);
+    List<AgentMessageDto> findMessagesForAgent(String agentType, String departmentName, LocalDateTime since,
+            LocalDateTime now, String defaultOfficeHoursWindow);
 }

@@ -90,4 +90,43 @@ class MessageServiceTest {
                 org.mockito.ArgumentMatchers.any(UUID.class),
                 org.mockito.ArgumentMatchers.any(LocalDateTime.class));
     }
+
+    @Test
+    void shouldSendImmediatelyReturnsFalseOutsideDefaultOfficeHours() {
+        Message message = new Message();
+        message.setAvailabilityWindows(null);
+
+        when(applicationTimeService.nowDateTime()).thenReturn(LocalDateTime.of(2026, 5, 5, 10, 0));
+        when(officeHoursSettingsService.getDefaultOfficeHoursWindow())
+                .thenReturn("[{\"day\":\"3\",\"startTime\":\"08:00\",\"endTime\":\"17:00\"}]");
+
+        boolean shouldSendImmediately = service.shouldSendImmediately(message);
+
+        assertThat(shouldSendImmediately).isFalse();
+    }
+
+    @Test
+    void shouldSendImmediatelyReturnsFalseWhenMessageHasWeeklySchedule() {
+        Message message = new Message();
+        message.setScheduleDaysOfWeek("3");
+
+        boolean shouldSendImmediately = service.shouldSendImmediately(message);
+
+        assertThat(shouldSendImmediately).isFalse();
+        verify(officeHoursSettingsService, never()).getDefaultOfficeHoursWindow();
+    }
+
+    @Test
+    void shouldSendImmediatelyReturnsTrueInsideDefaultOfficeHours() {
+        Message message = new Message();
+        message.setAvailabilityWindows(null);
+
+        when(applicationTimeService.nowDateTime()).thenReturn(LocalDateTime.of(2026, 5, 7, 10, 0));
+        when(officeHoursSettingsService.getDefaultOfficeHoursWindow())
+                .thenReturn("[{\"day\":\"4\",\"startTime\":\"08:00\",\"endTime\":\"17:00\"}]");
+
+        boolean shouldSendImmediately = service.shouldSendImmediately(message);
+
+        assertThat(shouldSendImmediately).isTrue();
+    }
 }
