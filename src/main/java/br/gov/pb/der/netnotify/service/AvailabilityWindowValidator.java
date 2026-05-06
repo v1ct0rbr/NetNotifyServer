@@ -20,10 +20,10 @@ public class AvailabilityWindowValidator {
     public List<String> validate(String availabilityWindowsJson) {
         List<String> errors = new ArrayList<>();
         String normalizedWindows = normalizeBlankAsEmptyList(availabilityWindowsJson);
-        List<AvailabilityWindowUtils.AvailabilityWindow> windows;
+        Map<Integer, AvailabilityWindowUtils.AvailabilityDayRule> rulesByDay;
 
         try {
-            windows = AvailabilityWindowUtils.parse(normalizedWindows);
+            rulesByDay = AvailabilityWindowUtils.parseDayRules(normalizedWindows);
         } catch (IOException | RuntimeException ex) {
             errors.add(INVALID_FORMAT_MESSAGE);
             return errors;
@@ -31,20 +31,26 @@ public class AvailabilityWindowValidator {
 
         Map<Integer, List<int[]>> intervalsByDay = new HashMap<>();
 
-        for (AvailabilityWindowUtils.AvailabilityWindow window : windows) {
-            int day = window.day();
+        for (AvailabilityWindowUtils.AvailabilityDayRule rule : rulesByDay.values()) {
+            int day = rule.day();
             if (day < 1 || day > 7) {
                 errors.add("Dia da janela de disponibilidade deve estar entre 1 e 7.");
                 return errors;
             }
 
-            if (!window.startTime().isBefore(window.endTime())) {
-                errors.add("Horário inicial deve ser menor que o horário final nas janelas de disponibilidade.");
-                return errors;
+            if (rule.ignored()) {
+                continue;
             }
 
-            intervalsByDay.computeIfAbsent(day, ignored -> new ArrayList<>())
-                    .add(new int[] { window.startTime().toSecondOfDay(), window.endTime().toSecondOfDay() });
+            for (AvailabilityWindowUtils.AvailabilityWindow window : rule.windows()) {
+                if (!window.startTime().isBefore(window.endTime())) {
+                    errors.add("Horário inicial deve ser menor que o horário final nas janelas de disponibilidade.");
+                    return errors;
+                }
+
+                intervalsByDay.computeIfAbsent(day, ignored -> new ArrayList<>())
+                        .add(new int[] { window.startTime().toSecondOfDay(), window.endTime().toSecondOfDay() });
+            }
         }
 
         for (Map.Entry<Integer, List<int[]>> entry : intervalsByDay.entrySet()) {

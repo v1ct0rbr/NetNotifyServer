@@ -11,6 +11,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -156,6 +157,22 @@ public class MessageController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    @PatchMapping(path = "/pause", params = { "id", "paused" })
+    public ResponseEntity<SimpleResponseUtils<MessageResponseDto>> updatePausedMessage(
+            @RequestParam UUID id,
+            @RequestParam boolean paused) {
+        Message updatedMessage = messageService.updatePaused(id, paused);
+        if (updatedMessage == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(SimpleResponseUtils.error(null, "Mensagem não encontrada."));
+        }
+
+        String successMessage = paused
+                ? "Mensagem pausada com sucesso."
+                : "Mensagem reativada com sucesso.";
+        return ResponseEntity.ok(SimpleResponseUtils.success(updatedMessage.objectMapper(), successMessage));
     }
 
     @DeleteMapping(path = "/delete", params = "id")

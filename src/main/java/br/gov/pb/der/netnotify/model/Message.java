@@ -88,6 +88,9 @@ public class Message {
     @Column(name = "published_at")
     private LocalDateTime publishedAt;
 
+    @Column(name = "paused", nullable = false)
+    private Boolean paused = false;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "message_department", joinColumns = @JoinColumn(name = "message_id"), inverseJoinColumns = @JoinColumn(name = "department_id"))
     private List<Department> departments;
@@ -117,7 +120,8 @@ public class Message {
                 this.scheduleDaysOfWeek,
                 this.scheduleTimes,
                 this.scheduleMonthDays,
-                this.availabilityWindows);
+                this.availabilityWindows,
+                Boolean.TRUE.equals(this.paused));
     }
 
 }

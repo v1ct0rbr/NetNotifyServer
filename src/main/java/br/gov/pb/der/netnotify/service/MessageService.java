@@ -20,9 +20,11 @@ import br.gov.pb.der.netnotify.model.Department;
 import br.gov.pb.der.netnotify.model.Message;
 import br.gov.pb.der.netnotify.repository.MessageRepository;
 import br.gov.pb.der.netnotify.response.MessageResponseDto;
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class MessageService implements AbstractService<Message, UUID> {
 
@@ -63,6 +65,17 @@ public class MessageService implements AbstractService<Message, UUID> {
 
     public MessageDto findMessageDtoById(UUID id) {
         return messageRepository.findMessageDtoById(id);
+    }
+
+    @CacheEvict(value = "agentMessages", allEntries = true)
+    public Message updatePaused(UUID id, boolean paused) {
+        Message message = findById(id);
+        if (message == null) {
+            return null;
+        }
+        message.setPaused(paused);
+        messageRepository.save(message);
+        return message;
     }
 
     public Page<MessageResponseDto> findAllMessages(MessageFilter filter, Pageable pageable) {
@@ -131,13 +144,14 @@ public class MessageService implements AbstractService<Message, UUID> {
         // (INTERNAL ou BOTH).
         AgentScope scope = message.getAgentScope();
         boolean publishToMessaging = scope == null || scope == AgentScope.INTERNAL || scope == AgentScope.BOTH;
+        boolean publishedSuccessfully = true;
 
         if (publishToMessaging) {
             List<Department> departmentList = message.getDepartments();
             if (departmentList.isEmpty()) {
                 // Broadcast geral: entregue pela routing key broadcast.general
                 // System.out.println("[Routing] Broadcast geral messageId=" + message.getId());
-                rabbitmqService.basicPublish(msg);
+                publishedSuccessfully = rabbitmqService.basicPublish(msg);
             } else {
                 // Segmentado por departamentos (e opcionalmente subdivisões)
                 // System.out.println("[Routing] Segmentado messageId=" + message.getId() + "
@@ -154,20 +168,25 @@ public class MessageService implements AbstractService<Message, UUID> {
                             if (departmentList.contains(subDept)) {
                                 continue; // Já está na lista principal
                             }
-                            rabbitmqService.publishToDepartment(msg, subDept.getName());
+                            publishedSuccessfully = rabbitmqService.publishToDepartment(msg, subDept.getName())
+                                    && publishedSuccessfully;
                         }
                     }
                 }
-                rabbitmqService.publishToDepartments(msg, departmentList.stream()
+                publishedSuccessfully = rabbitmqService.publishToDepartments(msg, departmentList.stream()
                         .map(Department::getName)
-                        .collect(Collectors.toList()));
+                        .collect(Collectors.toList())) && publishedSuccessfully;
             }
         } else {
             System.out.println("[Routing] Mensagem ignorada no broker (agentScope=" + scope +
                     ", agentes de mensageria são internos) messageId=" + message.getId());
         }
 
-        messageRepository.updateLastSentAtById(message.getId(), applicationTimeService.nowDateTime());
+        if (publishedSuccessfully) {
+            messageRepository.updateLastSentAtById(message.getId(), applicationTimeService.nowDateTime());
+        } else {
+            log.warn("Skipping lastSentAt update because RabbitMQ publish failed for messageId={}", message.getId());
+        }
 
         return msg;
     }

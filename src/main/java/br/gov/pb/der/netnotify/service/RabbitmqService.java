@@ -27,6 +27,8 @@ import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import br.gov.pb.der.netnotify.utils.RabbitVhostUtils;
+
 @Service
 @Getter
 @Setter
@@ -70,7 +72,7 @@ public class RabbitmqService {
         factory.setHost(factoryHost);
         factory.setUsername(factoryUsername);
         factory.setPassword(factoryPassword);
-        factory.setVirtualHost(factoryVirtualHost);
+        factory.setVirtualHost(normalizedVirtualHost());
         configureConnectionFactory(factory);
         return factory;
     }
@@ -84,7 +86,7 @@ public class RabbitmqService {
         factory.setHost(factoryHost);
         factory.setUsername(adminProducerUsername);
         factory.setPassword(adminProducerPassword);
-        factory.setVirtualHost(factoryVirtualHost);
+        factory.setVirtualHost(normalizedVirtualHost());
         configureConnectionFactory(factory);
         return factory;
     }
@@ -98,7 +100,7 @@ public class RabbitmqService {
         factory.setHost(factoryHost);
         factory.setUsername(agentConsumerUsername);
         factory.setPassword(agentConsumerPassword);
-        factory.setVirtualHost(factoryVirtualHost);
+        factory.setVirtualHost(normalizedVirtualHost());
         configureConnectionFactory(factory);
         return factory;
     }
@@ -114,6 +116,14 @@ public class RabbitmqService {
         factory.setConnectionTimeout(30000);
     }
 
+    private String normalizedVirtualHost() {
+        String normalized = RabbitVhostUtils.normalize(factoryVirtualHost);
+        if (!normalized.equals(factoryVirtualHost)) {
+            log.warn("Normalized RabbitMQ virtual host from '{}' to '{}'", factoryVirtualHost, normalized);
+        }
+        return normalized;
+    }
+
     public void initializeExchangeAndQueue() throws IOException, TimeoutException {
         ConnectionFactory factory = rabbitConnectionFactoryProducer();
         try (Connection connection = factory.newConnection();
@@ -125,8 +135,8 @@ public class RabbitmqService {
         }
     }
 
-    public void basicPublish(String message) {
-        publishWithRoutingKey(message, BROADCAST_ROUTING_KEY);
+    public boolean basicPublish(String message) {
+        return publishWithRoutingKey(message, BROADCAST_ROUTING_KEY);
     }
 
     public String basicConsume() {
@@ -255,7 +265,7 @@ public class RabbitmqService {
      * @param customRoutingKey Routing key customizado (ex: "department.financeiro",
      *                         "department.rh")
      */
-    public void publishWithRoutingKey(String message, String customRoutingKey) {
+    public boolean publishWithRoutingKey(String message, String customRoutingKey) {
         try (Connection connection = rabbitConnectionFactoryProducer().newConnection();
                 Channel channel = connection.createChannel()) {
 
@@ -264,9 +274,11 @@ public class RabbitmqService {
             channel.basicPublish(fanoutExchange.getName(), customRoutingKey, null,
                     message.getBytes(StandardCharsets.UTF_8));
             log.info("[RabbitMQ] Sent routingKey='{}'", customRoutingKey);
+            return true;
 
         } catch (IOException | TimeoutException e) {
-            log.error("Error publishing message with routing key '{}': {}", customRoutingKey, e.getMessage());
+            log.error("Error publishing message with routing key '{}'", customRoutingKey, e);
+            return false;
         }
     }
 
@@ -276,8 +288,8 @@ public class RabbitmqService {
      * @param message        Conteúdo da mensagem
      * @param departmentName Nome do departamento
      */
-    public void publishToDepartment(String message, String departmentName) {
-        publishWithRoutingKey(message, buildDepartmentRoutingKey(departmentName));
+    public boolean publishToDepartment(String message, String departmentName) {
+        return publishWithRoutingKey(message, buildDepartmentRoutingKey(departmentName));
     }
 
     /**
@@ -286,10 +298,12 @@ public class RabbitmqService {
      * @param message       Conteúdo da mensagem
      * @param departmentIds Lista de IDs de departamentos
      */
-    public void publishToDepartments(String message, List<String> departmentNames) {
+    public boolean publishToDepartments(String message, List<String> departmentNames) {
+        boolean allPublished = true;
         for (String deptName : departmentNames) {
-            publishToDepartment(message, deptName);
+            allPublished = publishToDepartment(message, deptName) && allPublished;
         }
+        return allPublished;
     }
 
     /**
@@ -298,8 +312,8 @@ public class RabbitmqService {
      * 
      * @param message Conteúdo da mensagem
      */
-    public void publishToAllDepartments(String message) {
-        basicPublish(message);
+    public boolean publishToAllDepartments(String message) {
+        return basicPublish(message);
     }
 
     /**
@@ -307,12 +321,12 @@ public class RabbitmqService {
      * 
      * @param message Conteúdo da mensagem
      */
-    public void publishToEveryone(String message) {
-        basicPublish(message);
+    public boolean publishToEveryone(String message) {
+        return basicPublish(message);
     }
 
-    public void publishToAgent(String message, String agentHostname) {
-        publishWithRoutingKey(message, buildAgentRoutingKey(agentHostname));
+    public boolean publishToAgent(String message, String agentHostname) {
+        return publishWithRoutingKey(message, buildAgentRoutingKey(agentHostname));
     }
 
     /**

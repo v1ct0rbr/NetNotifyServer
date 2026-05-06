@@ -77,7 +77,8 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 message.get(Message_.scheduleDaysOfWeek),
                 message.get(Message_.scheduleTimes),
                 message.get(Message_.scheduleMonthDays),
-                message.get(Message_.availabilityWindows)));
+                message.get(Message_.availabilityWindows),
+                cb.coalesce(message.get(Message_.paused), false)));
         // Filtros dinâmicos
         List<Predicate> predicates = new ArrayList<>();
         if (filter != null) {
@@ -214,7 +215,8 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 message.get(Message_.scheduleDaysOfWeek),
                 message.get(Message_.scheduleTimes),
                 message.get(Message_.scheduleMonthDays),
-                message.get(Message_.availabilityWindows)));
+                message.get(Message_.availabilityWindows),
+                cb.coalesce(message.get(Message_.paused), false)));
         // Filtros dinâmicos
 
         List<Predicate> predicates = new ArrayList<>();
@@ -224,6 +226,9 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 cb.isNull(message.get(Message_.expireAt)),
                 cb.greaterThan(message.get(Message_.expireAt), now));
         predicates.add(notExpired);
+        predicates.add(cb.or(
+                cb.isNull(message.get(Message_.paused)),
+                cb.isFalse(message.get(Message_.paused))));
 
         // Candidatos:
         // A) Intervalo de repetição
@@ -233,16 +238,17 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
         Predicate isRecurring = cb.and(
                 cb.isNotNull(message.get(Message_.repeatIntervalMinutes)),
                 cb.greaterThan(message.get(Message_.repeatIntervalMinutes), 0));
-        Predicate isFutureOneShotDue = cb.and(
+        Predicate isOneShotDue = cb.and(
                 cb.isNull(message.get(Message_.repeatIntervalMinutes)),
                 cb.isNull(message.get(Message_.scheduleDaysOfWeek)),
                 cb.isNull(message.get(Message_.scheduleMonthDays)),
                 cb.isNull(message.get(Message_.lastSentAt)),
-                cb.isNotNull(message.get(Message_.publishedAt)),
-                cb.lessThanOrEqualTo(message.get(Message_.publishedAt), now));
+                cb.or(
+                        cb.isNull(message.get(Message_.publishedAt)),
+                        cb.lessThanOrEqualTo(message.get(Message_.publishedAt), now)));
         Predicate isWeeklyScheduled = cb.isNotNull(message.get(Message_.scheduleDaysOfWeek));
         Predicate isMonthlyScheduled = cb.isNotNull(message.get(Message_.scheduleMonthDays));
-        predicates.add(cb.or(isRecurring, isFutureOneShotDue, isWeeklyScheduled, isMonthlyScheduled));
+        predicates.add(cb.or(isRecurring, isOneShotDue, isWeeklyScheduled, isMonthlyScheduled));
 
         if (!predicates.isEmpty()) {
             cq.where(cb.and(predicates.toArray(new Predicate[0])));
@@ -381,12 +387,13 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
                 LEFT JOIN FETCH m.level l
                 LEFT JOIN FETCH m.type t
                 LEFT JOIN FETCH m.user u
-                LEFT JOIN m.departments d
-                WHERE (m.expireAt IS NULL OR m.expireAt > :now)
-                AND (m.publishedAt IS NULL OR m.publishedAt <= :now)
-                AND m.agentScope IN :scopes
-                AND (:departmentName IS NULL OR :departmentName = ''
-                     OR LOWER(d.name) = :departmentName OR m.departments IS EMPTY)
+                 LEFT JOIN m.departments d
+                 WHERE (m.expireAt IS NULL OR m.expireAt > :now)
+                 AND (m.publishedAt IS NULL OR m.publishedAt <= :now)
+                 AND (m.paused IS NULL OR m.paused = false)
+                 AND m.agentScope IN :scopes
+                 AND (:departmentName IS NULL OR :departmentName = ''
+                      OR LOWER(d.name) = :departmentName OR m.departments IS EMPTY)
                 AND (
                     m.repeatIntervalMinutes IS NOT NULL
                     OR (m.scheduleDaysOfWeek IS NOT NULL)
@@ -528,31 +535,9 @@ public class MessageRepositoryImpl implements MessageRepositoryCustom {
      */
     private boolean isWithinAvailabilityWindows(String availabilityWindowsJson, String defaultOfficeHoursWindow,
             LocalDate today, LocalTime nowTime) {
-        String effectiveWindowsJson = (availabilityWindowsJson != null && !availabilityWindowsJson.isBlank())
-                ? availabilityWindowsJson
-                : defaultOfficeHoursWindow;
-
-        if (effectiveWindowsJson == null || effectiveWindowsJson.isBlank()) {
-            return true; // sem restrição (fallback desabilitado)
-        }
-
         try {
-            int todayIso = today.getDayOfWeek().getValue();
-            List<AvailabilityWindowUtils.AvailabilityWindow> windows = AvailabilityWindowUtils.parse(effectiveWindowsJson);
-            if (windows.isEmpty()) {
-                return true;
-            }
-            for (AvailabilityWindowUtils.AvailabilityWindow window : windows) {
-                if (window.day() != todayIso) {
-                    continue;
-                }
-                LocalTime start = window.startTime();
-                LocalTime end = window.endTime();
-                if (!nowTime.isBefore(start) && nowTime.isBefore(end)) {
-                    return true;
-                }
-            }
-            return false;
+            return AvailabilityWindowUtils.isAllowedAt(availabilityWindowsJson, defaultOfficeHoursWindow, today,
+                    nowTime);
         } catch (IOException | RuntimeException e) {
             return true; // falha aberta: se JSON inválido, não bloqueia
         }

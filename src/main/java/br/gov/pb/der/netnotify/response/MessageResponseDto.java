@@ -35,6 +35,7 @@ public class MessageResponseDto implements Serializable {
     private LocalDateTime publishedAt;
     private LocalDateTime expireAt;
     private LocalDateTime lastSentAt;
+    private Boolean paused;
     private List<DepartmentInfo> departments;
     public MessageResponseDto() {
         this.departments = new ArrayList<>();
@@ -52,6 +53,7 @@ public class MessageResponseDto implements Serializable {
         this.scheduleTimes = message.getScheduleTimes();
         this.scheduleMonthDays = message.getScheduleMonthDays();
         this.availabilityWindows = message.getAvailabilityWindows();
+        this.paused = Boolean.TRUE.equals(message.getPaused());
         if (message.getDepartments() != null) {
             this.departments = message.getDepartments().stream()
                     .map(d -> new DepartmentInfo(d.getId(), d.getName()))
@@ -62,7 +64,8 @@ public class MessageResponseDto implements Serializable {
     public MessageResponseDto(UUID id, String title, String content, String level, String messageType, String user,
             LocalDateTime createdAt, LocalDateTime updatedAt, LocalDateTime expireAt, LocalDateTime lastSentAt,
             Integer repeatIntervalMinutes, Boolean sendToSubdivisions, LocalDateTime publishedAt,
-            String scheduleDaysOfWeek, String scheduleTimes, String scheduleMonthDays, String availabilityWindows) {
+            String scheduleDaysOfWeek, String scheduleTimes, String scheduleMonthDays, String availabilityWindows,
+            Boolean paused) {
         this.id = id;
         this.title = title;
         this.content = content;
@@ -80,6 +83,7 @@ public class MessageResponseDto implements Serializable {
         this.scheduleTimes = scheduleTimes;
         this.scheduleMonthDays = scheduleMonthDays;
         this.availabilityWindows = availabilityWindows;
+        this.paused = paused;
     }
 
     public String departmentsToString() {

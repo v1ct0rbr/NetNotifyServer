@@ -2,8 +2,8 @@ package br.gov.pb.der.netnotify.service;
 
 import java.net.InetAddress;
 import java.net.URI;
-import java.net.UnknownHostException;
 import java.net.URLEncoder;
+import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -22,6 +22,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import br.gov.pb.der.netnotify.dto.RabbitAgentDto;
+import br.gov.pb.der.netnotify.utils.RabbitVhostUtils;
 
 /**
  * Consulta a Management HTTP API do RabbitMQ para listar agentes conectados e
@@ -177,49 +178,25 @@ public class RabbitManagementService {
     private Map<String, List<String>> fetchQueueBindings(String targetVhost) {
         String encodedVhost = encodePathSegment(targetVhost);
         String url = buildManagementUrl("/api/bindings/" + encodedVhost);
+        String fallbackUrl = buildManagementUrl("/api/bindings");
         try {
-            List<Map<String, Object>> bindings = createWebClient()
-                    .get()
-                    .uri(URI.create(url))
-                    .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {
-                    })
-                    .block();
-
-            if (bindings == null) {
+            return requestAndParseBindings(url, targetVhost);
+        } catch (WebClientResponseException.NotFound e) {
+            log.warn(
+                    "Endpoint de bindings por vhost retornou 404 [{}]. Aplicando fallback para endpoint global [{}].",
+                    url,
+                    fallbackUrl);
+            try {
+                return requestAndParseBindings(fallbackUrl, targetVhost);
+            } catch (Exception fallbackError) {
+                log.warn(
+                        "Não foi possível obter bindings das filas via RabbitMQ Management API [{}] (host={}, port={}): {}",
+                        fallbackUrl,
+                        managementHost,
+                        managementPort,
+                        fallbackError.getMessage());
                 return Map.of();
             }
-
-            Map<String, List<String>> result = new HashMap<>();
-            for (Map<String, Object> binding : bindings) {
-                String bindingVhost = normalizeVhost(asString(binding.get("vhost")));
-                if (!isSameVhost(targetVhost, bindingVhost)) {
-                    continue;
-                }
-
-                String destinationType = asString(binding.get("destination_type"));
-                String source = asString(binding.get("source"));
-                String destination = asString(binding.get("destination"));
-                String routingKey = asString(binding.get("routing_key"));
-
-                if (!"queue".equalsIgnoreCase(destinationType)) {
-                    continue;
-                }
-                if (!exchangeName.equals(source)) {
-                    continue;
-                }
-                if (isBlank(destination) || isBlank(routingKey)) {
-                    continue;
-                }
-
-                result.computeIfAbsent(destination, ignored -> new ArrayList<>());
-                List<String> routingKeys = result.get(destination);
-                if (!routingKeys.contains(routingKey)) {
-                    routingKeys.add(routingKey);
-                }
-            }
-
-            return result;
         } catch (Exception e) {
             log.warn(
                     "Não foi possível obter bindings das filas via RabbitMQ Management API [{}] (host={}, port={}): {}",
@@ -229,6 +206,51 @@ public class RabbitManagementService {
                     e.getMessage());
             return Map.of();
         }
+    }
+
+    private Map<String, List<String>> requestAndParseBindings(String url, String targetVhost) {
+        List<Map<String, Object>> bindings = createWebClient()
+                .get()
+                .uri(URI.create(url))
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {
+                })
+                .block();
+
+        if (bindings == null) {
+            return Map.of();
+        }
+
+        Map<String, List<String>> result = new HashMap<>();
+        for (Map<String, Object> binding : bindings) {
+            String bindingVhost = normalizeVhost(asString(binding.get("vhost")));
+            if (!isSameVhost(targetVhost, bindingVhost)) {
+                continue;
+            }
+
+            String destinationType = asString(binding.get("destination_type"));
+            String source = asString(binding.get("source"));
+            String destination = asString(binding.get("destination"));
+            String routingKey = asString(binding.get("routing_key"));
+
+            if (!"queue".equalsIgnoreCase(destinationType)) {
+                continue;
+            }
+            if (!exchangeName.equals(source)) {
+                continue;
+            }
+            if (isBlank(destination) || isBlank(routingKey)) {
+                continue;
+            }
+
+            result.computeIfAbsent(destination, ignored -> new ArrayList<>());
+            List<String> routingKeys = result.get(destination);
+            if (!routingKeys.contains(routingKey)) {
+                routingKeys.add(routingKey);
+            }
+        }
+
+        return result;
     }
 
     // -------------------------------------------------------------------------
@@ -426,7 +448,7 @@ public class RabbitManagementService {
     }
 
     private String normalizeVhost(String vhost) {
-        return (vhost == null || vhost.isBlank()) ? "/" : vhost;
+        return RabbitVhostUtils.normalize(vhost);
     }
 
     private boolean isSameVhost(String left, String right) {
