@@ -37,9 +37,11 @@ spring:
     # O usuário precisa ter a tag 'management' ou 'administrator' no RabbitMQ
     management:
       host: ${RABBITMQ_MANAGEMENT_HOST:${RABBITMQ_HOST:localhost}}
-      port: ${RABBITMQ_MANAGEMENT_PORT:${RABBITMQ_MANAGEMENT_PORT:15672}}
+      port: ${RABBITMQ_MANAGEMENT_PORT:15672}
       username: ${RABBITMQ_ADMIN_PRODUCER_USER:guest}
       password: ${RABBITMQ_ADMIN_PRODUCER_PASS:guest}
+      connect-timeout-ms: ${RABBITMQ_MANAGEMENT_CONNECT_TIMEOUT_MS:3000}
+      request-timeout-seconds: ${RABBITMQ_MANAGEMENT_REQUEST_TIMEOUT_SECONDS:5}
 
   profiles:
     include:
@@ -102,4 +104,3 @@ logging:
     org.springframework.security.oauth2: DEBUG
     org.springframework.security.oauth2.jwt: DEBUG
     org.springframework.security.oauth2.server.resource: DEBUG
-

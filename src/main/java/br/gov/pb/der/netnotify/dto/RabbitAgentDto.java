@@ -24,13 +24,13 @@ public class RabbitAgentDto {
     /** Nome do departamento, quando inferível a partir de convenções legadas */
     private String department;
 
-    /** IP do consumidor (peer) */
+    /** IP ou hostname do consumidor (peer) */
     private String peerHost;
 
     /** Porta do consumidor */
     private int peerPort;
 
-    /** IP:porta no formato "x.x.x.x:port" */
+    /** Endereço reportado para o consumidor */
     private String peerAddress;
 
     /** Mensagens pendentes na fila */

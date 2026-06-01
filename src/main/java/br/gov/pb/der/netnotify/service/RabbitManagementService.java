@@ -1,10 +1,9 @@
 package br.gov.pb.der.netnotify.service;
 
-import java.net.InetAddress;
 import java.net.URI;
 import java.net.URLEncoder;
-import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -17,12 +16,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import br.gov.pb.der.netnotify.dto.RabbitAgentDto;
 import br.gov.pb.der.netnotify.utils.RabbitVhostUtils;
+import io.netty.channel.ChannelOption;
+import reactor.netty.http.client.HttpClient;
 
 /**
  * Consulta a Management HTTP API do RabbitMQ para listar agentes conectados e
@@ -57,6 +59,12 @@ public class RabbitManagementService {
 
     @Value("${spring.rabbitmq.management.password:guest}")
     private String managementPassword;
+
+    @Value("${spring.rabbitmq.management.connect-timeout-ms:3000}")
+    private int managementConnectTimeoutMs;
+
+    @Value("${spring.rabbitmq.management.request-timeout-seconds:5}")
+    private long managementRequestTimeoutSeconds;
 
     @Value("${spring.rabbitmq.exchange:${RABBITMQ_EXCHANGE:netnotify_topic}}")
     private String exchangeName;
@@ -291,9 +299,9 @@ public class RabbitManagementService {
             Object peerPortObj = channelDetails.getOrDefault("peer_port", 0);
             int peerPort = numberToInt(peerPortObj, extractPeerPort(rawPeerAddress));
 
-            String resolvedPeerHost = bestEffortResolveIp(peerHost);
-            if (isBlank(resolvedPeerHost)) {
-                resolvedPeerHost = "N/D";
+            String displayPeerHost = rawPeerHost(peerHost);
+            if (isBlank(displayPeerHost)) {
+                displayPeerHost = "N/D";
             }
 
             String dedupKey = queueName;
@@ -303,9 +311,9 @@ public class RabbitManagementService {
             String connectionName = (String) channelDetails.get("connection_name");
 
             RabbitAgentDto dto = parseQueueName(queueName, queueBindings.getOrDefault(queueName, List.of()));
-            dto.setPeerHost(resolvedPeerHost);
+            dto.setPeerHost(displayPeerHost);
             dto.setPeerPort(peerPort);
-            dto.setPeerAddress(resolvedPeerHost);
+            dto.setPeerAddress(displayPeerHost);
             dto.setConnectionName(connectionName);
             dto.setMessageCount(queueStats.getOrDefault(queueName, QueueStats.ZERO).messageCount());
 
@@ -332,17 +340,14 @@ public class RabbitManagementService {
                 continue;
 
             RabbitAgentDto dto = parseQueueName(queueName, queueBindings.getOrDefault(queueName, List.of()));
-            String resolvedPeerHost = bestEffortResolveIp(dto.getAgentHostname());
-            if (isBlank(resolvedPeerHost)) {
-                resolvedPeerHost = dto.getAgentHostname();
-            }
-            if (isBlank(resolvedPeerHost)) {
-                resolvedPeerHost = "N/D";
+            String displayPeerHost = rawPeerHost(dto.getAgentHostname());
+            if (isBlank(displayPeerHost)) {
+                displayPeerHost = "N/D";
             }
 
-            dto.setPeerHost(resolvedPeerHost);
+            dto.setPeerHost(displayPeerHost);
             dto.setPeerPort(0);
-            dto.setPeerAddress(resolvedPeerHost);
+            dto.setPeerAddress(displayPeerHost);
             dto.setConnectionName(null);
             dto.setMessageCount(stats.messageCount());
             agents.add(dto);
@@ -434,7 +439,12 @@ public class RabbitManagementService {
     // -------------------------------------------------------------------------
 
     private WebClient createWebClient() {
+        HttpClient httpClient = HttpClient.create()
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, managementConnectTimeoutMs)
+                .responseTimeout(Duration.ofSeconds(managementRequestTimeoutSeconds));
+
         return WebClient.builder()
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .defaultHeaders(h -> h.setBasicAuth(managementUsername, managementPassword))
                 .build();
     }
@@ -550,22 +560,12 @@ public class RabbitManagementService {
         }
     }
 
-    private String bestEffortResolveIp(String hostOrIp) {
+    private String rawPeerHost(String hostOrIp) {
         if (isBlank(hostOrIp)) {
             return null;
         }
 
-        String value = hostOrIp.trim();
-        // Já parece IPv4
-        if (value.matches("^\\d{1,3}(?:\\.\\d{1,3}){3}$")) {
-            return value;
-        }
-
-        try {
-            return InetAddress.getByName(value).getHostAddress();
-        } catch (UnknownHostException e) {
-            return value;
-        }
+        return hostOrIp.trim();
     }
 
     private record QueueStats(int messageCount, int consumerCount) {
