@@ -109,10 +109,21 @@ echo "      → Aplicando permissões (configure/write em queue_agent_* e queue_
 rabbitmqctl set_permissions -p / "$AGENT_CONSUMER_USER" '^(queue_agent_|queue_department_)' '^(queue_agent_|queue_department_)' '.*' 2>/dev/null || true
 
 # ============================================
+# Exchange netnotify_topic
+# ============================================
+EXCHANGE_NAME=${RABBITMQ_EXCHANGE:-netnotify_topic}
+
+echo ""
+echo "[3/4] Criando exchange '$EXCHANGE_NAME'..."
+rabbitmqadmin declare exchange name="$EXCHANGE_NAME" type=topic durable=false auto_delete=false 2>/dev/null || \
+    rabbitmqctl eval "rabbit_exchange:declare({resource, <<\"/\">>, exchange, <<\"$EXCHANGE_NAME\">>}, topic, false, false, none, <<\"init-script\">>)." 2>/dev/null || \
+    echo "  (exchange pode já existir ou será criado pelo servidor na inicialização)"
+
+# ============================================
 # Verificação Final (não-crítica)
 # ============================================
 echo ""
-echo "[3/4] Verificando configuração..."
+echo "[4/4] Verificando configuração..."
 sleep 2
 
 echo ""
@@ -135,6 +146,9 @@ echo "Usuários criados:"
 echo "  • $ADMIN_PRODUCER_USER     (produtor: configure + write + read em tudo)"
 echo "  • $AGENT_CONSUMER_USER     (consumidor: configure + read em queue_agent_*, read em tudo)"
 echo "  • guest              (padrão RabbitMQ)"
+echo ""
+echo "Exchange criado:"
+echo "  • $EXCHANGE_NAME    (topic, auto_delete=false)"
 echo ""
 echo "Conexão para Servidor (NetNotify):"
 echo "  user: $ADMIN_PRODUCER_USER"

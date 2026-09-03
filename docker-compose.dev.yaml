@@ -5,8 +5,8 @@ services:
       dockerfile: Dockerfile.rabbitmq
     container_name: netnotify-rabbitmq
     ports:
-      - "5672:5672" # porta do broker
-      - "15672:15672" # painel web
+      - "${RABBITMQ_PORT}:5672" # porta do broker
+      - "${RABBITMQ_MANAGEMENT_PORT}:15672" # painel web
     environment:
       # Credenciais padrão do RabbitMQ (reconhecidas nativamente)
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
@@ -38,7 +38,7 @@ services:
     image: docker.dragonflydb.io/dragonflydb/dragonfly
     container_name: netnotify-dragonfly
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT}:6379"
     command: [ "--requirepass", "${REDIS_PASSWORD}" ]
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}

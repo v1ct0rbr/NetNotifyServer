@@ -43,6 +43,8 @@ public class RabbitmqService {
 
     @Value("${spring.rabbitmq.host}")
     private String factoryHost;
+    @Value("${spring.rabbitmq.port:5672}")
+    private int factoryPort;
     @Value("${spring.rabbitmq.username}")
     private String factoryUsername;
     @Value("${spring.rabbitmq.password}")
@@ -70,6 +72,7 @@ public class RabbitmqService {
     public ConnectionFactory rabbitConnectionFactory() {
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost(factoryHost);
+        factory.setPort(factoryPort);
         factory.setUsername(factoryUsername);
         factory.setPassword(factoryPassword);
         factory.setVirtualHost(normalizedVirtualHost());
@@ -84,6 +87,7 @@ public class RabbitmqService {
     public ConnectionFactory rabbitConnectionFactoryProducer() {
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost(factoryHost);
+        factory.setPort(factoryPort);
         factory.setUsername(adminProducerUsername);
         factory.setPassword(adminProducerPassword);
         factory.setVirtualHost(normalizedVirtualHost());
@@ -98,6 +102,7 @@ public class RabbitmqService {
     public ConnectionFactory rabbitConnectionFactoryConsumer() {
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost(factoryHost);
+        factory.setPort(factoryPort);
         factory.setUsername(agentConsumerUsername);
         factory.setPassword(agentConsumerPassword);
         factory.setVirtualHost(normalizedVirtualHost());

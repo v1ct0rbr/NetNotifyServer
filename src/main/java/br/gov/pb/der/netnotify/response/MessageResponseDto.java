@@ -3,8 +3,15 @@ package br.gov.pb.der.netnotify.response;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import br.gov.pb.der.netnotify.model.Message;
 import lombok.Data;
@@ -104,17 +111,25 @@ public class MessageResponseDto implements Serializable {
     }
 
     public String jsonStringfy() {
-        return "{"
-                + "\"id\":" + "\"" + id + "\""
-                + ", \"title\":" + "\"" + title + "\""
-                + ", \"content\":" + "\"" + content + "\""
-                + ", \"level\":" + "\"" + level + "\""
-                + ", \"type\":" + "\"" + messageType + "\""
-                + ", \"user\":" + "\"" + user + "\""
-                + ", \"createdAt\":" + "\"" + createdAt + "\""
-                + ", \"updatedAt\":" + "\"" + updatedAt + "\""
-                + (departments != null ? ", \"departments\":" + departmentsToString() : "")
-                + "}";
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("id", id);
+        payload.put("title", title);
+        payload.put("content", content);
+        payload.put("level", level);
+        payload.put("type", messageType);
+        payload.put("user", user);
+        payload.put("createdAt", createdAt);
+        payload.put("updatedAt", updatedAt);
+        if (departments != null && !departments.isEmpty()) {
+            payload.put("departments", departments);
+        }
+        try {
+            return new ObjectMapper().registerModule(new JavaTimeModule())
+                    .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                    .writeValueAsString(payload);
+        } catch (JsonProcessingException e) {
+            return "{}";
+        }
     }
 
     @lombok.AllArgsConstructor
