@@ -93,23 +93,6 @@ public class MessageResponseDto implements Serializable {
         this.paused = paused;
     }
 
-    public String departmentsToString() {
-        if (departments == null || departments.isEmpty()) {
-            return "[]";
-        }
-        StringBuilder sb = new StringBuilder();
-        sb.append("[");
-        for (int i = 0; i < departments.size(); i++) {
-            DepartmentInfo dept = departments.get(i);
-            sb.append("{\"name\":\"").append(dept.getName()).append("\"}");
-            if (i < departments.size() - 1) {
-                sb.append(", ");
-            }
-        }
-        sb.append("]");
-        return sb.toString();
-    }
-
     public String jsonStringfy() {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("id", id);

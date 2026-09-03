@@ -64,6 +64,11 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
 
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+
   security:
     oauth2:
       resourceserver:
@@ -74,6 +79,11 @@ app:
   timezone: ${APP_TIMEZONE:America/Recife} # Timezone da aplicação, usado para datas e horários
   react-app-url: ${REACT_APP_URL:http://localhost:3000} # URL do app React que receberá a autenticação
   allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+  # Diretório local onde as imagens enviadas pelo editor (TinyMCE) são gravadas.
+  # As imagens ficam acessíveis publicamente em /uploads/** para que os agentes
+  # possam baixá-las sem autenticação.
+  upload:
+    dir: ${APP_UPLOAD_DIR:./uploads}
   # Expediente padrão aplicado a todas as mensagens quando availabilityWindows não é informado.
   # Aceita tanto o formato achatado [{"day":"1","startTime":"08:00","endTime":"17:00"}, ...]
   # quanto o agrupado [{"day":"1","intervals":[{"startTime":"08:00","endTime":"12:00"},{"startTime":"13:00","endTime":"17:00"}]}]
